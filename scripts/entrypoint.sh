@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "VEN Auth Server - Starting..."
+echo "rw3iss Auth Server - Starting..."
 
 DB_HOST="${DB_HOST:-postgres}"
 DB_PORT="${DB_PORT:-5432}"

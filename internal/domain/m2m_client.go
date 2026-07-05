@@ -5,8 +5,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // M2MClient is a registered OAuth2 client_credentials consumer — a

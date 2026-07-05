@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ven/auth/internal/api/dto"
-	"github.com/ven/auth/internal/api/middleware"
-	"github.com/ven/auth/internal/logging"
-	auth "github.com/ven/auth/internal/service/auth"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/api/dto"
+	"github.com/rw3iss/auth/internal/api/middleware"
+	"github.com/rw3iss/auth/internal/logging"
+	auth "github.com/rw3iss/auth/internal/service/auth"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // AuthHandler handles authentication endpoints

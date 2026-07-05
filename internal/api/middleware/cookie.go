@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ven/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // Cookie + CSRF support. AUDIT 9.2: for first-party browser SDKs,
@@ -23,9 +23,9 @@ import (
 // admin-dashboard) reference the same values.
 
 const (
-	AccessCookieName  = "vendidit_access"
-	RefreshCookieName = "vendidit_refresh"
-	CSRFCookieName    = "vendidit_csrf"
+	AccessCookieName  = "rw3iss_access"
+	RefreshCookieName = "rw3iss_refresh"
+	CSRFCookieName    = "rw3iss_csrf"
 	CSRFHeaderName    = "X-CSRF-Token"
 )
 
@@ -95,7 +95,7 @@ func NewCSRFToken() (string, error) {
 }
 
 // RequireCSRF middleware enforces the double-submit cookie check: the
-// X-CSRF-Token header must equal the vendidit_csrf cookie. Apply this on
+// X-CSRF-Token header must equal the rw3iss_csrf cookie. Apply this on
 // state-changing routes that use cookie auth.
 //
 // Bypass when the request is using bearer-token auth (no auth cookie

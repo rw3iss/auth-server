@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ven/auth/internal/api/dto"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/internal/repository"
-	"github.com/ven/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/internal/api/dto"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/repository"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // PermissionHandler handles service-to-auth permission operations.

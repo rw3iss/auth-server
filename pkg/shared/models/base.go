@@ -4,7 +4,7 @@ package models
 import (
 	"time"
 
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // BaseModel contains common fields for all entities

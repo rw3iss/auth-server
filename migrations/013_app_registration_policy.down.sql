@@ -1,4 +1,4 @@
--- Reverses 013. Drops the policy columns + index. The Vendidit org +
+-- Reverses 013. Drops the policy columns + index. The rw3iss org +
 -- auth-client-demo app rows are left in place — they're data, not
 -- schema; an operator who wants them gone can DELETE manually after
 -- confirming no users depend on them.

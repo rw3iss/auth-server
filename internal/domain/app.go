@@ -8,8 +8,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // WebhookEventUserRegistered fires when a NEW user is created through an
@@ -82,7 +82,7 @@ func (w *AppWebhooks) Scan(src any) error {
 	return json.Unmarshal(b, w)
 }
 
-// App represents a consuming application of the Vendidit auth system.
+// App represents a consuming application of the rw3iss auth system.
 // One row per app — registered once by a system_admin (see
 // docs/APP_REGISTRATION.md).
 //
@@ -123,7 +123,7 @@ type App struct {
 	DefaultOrganizationID *types.ID `db:"default_organization_id" json:"default_organization_id,omitempty"`
 
 	// FrontendURL is the app's canonical client origin, e.g.
-	// "https://auth-demo.vendidit.com". Used by the email layer to
+	// "https://demo.auth.ryanweiss.net". Used by the email layer to
 	// construct verify / reset / magic-link / invitation URLs that
 	// point back at the originating app instead of a global default.
 	// NULL = fall back to the CLIENT_URL env var (single-tenant mode).
@@ -166,7 +166,7 @@ type App struct {
 
 	// LinkedAppCodes are additional app codes whose user_apps membership is
 	// also granted when this app provisions a user (e.g. globalsku →
-	// vendidit-marketplace). Empty ⇒ none. Unknown codes are skipped with a
+	// rw3iss-marketplace). Empty ⇒ none. Unknown codes are skipped with a
 	// warning at provision time, never fatal.
 	LinkedAppCodes pq.StringArray `db:"linked_app_codes" json:"linked_app_codes"`
 }

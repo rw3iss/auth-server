@@ -3,7 +3,7 @@ package jwt
 
 import (
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // TokenClaims represents the claims in a JWT token

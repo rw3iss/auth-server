@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 func TestFacebookGetUserInfo(t *testing.T) {

@@ -4,7 +4,7 @@ package sso
 import (
 	"context"
 
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // UserInfo represents user information from an SSO provider

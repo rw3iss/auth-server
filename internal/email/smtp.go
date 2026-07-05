@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ven/auth/internal/config"
+	"github.com/rw3iss/auth/internal/config"
 )
 
 // SMTPService implements EmailService using SMTP
@@ -82,7 +82,7 @@ Please verify your email address by clicking the link below:
 This link will expire in 24 hours.
 
 Best regards,
-The VEN Team`, firstName, data["VerificationURL"])
+The rw3iss Team`, firstName, data["VerificationURL"])
 	}
 
 	return s.send(email, subject, body)
@@ -113,7 +113,7 @@ You requested to reset your password. Click the link below to proceed:
 This link will expire in 1 hour. If you didn't request this, please ignore this email.
 
 Best regards,
-The VEN Team`, firstName, data["ResetURL"])
+The rw3iss Team`, firstName, data["ResetURL"])
 	}
 
 	return s.send(email, subject, body)
@@ -137,7 +137,7 @@ Click the link below to sign in:
 
 This link expires in 15 minutes. If you didn't request it, ignore this email.
 
-— The VEN Team`, firstName, url)
+— The rw3iss Team`, firstName, url)
 	}
 	return s.send(email, subject, body)
 }
@@ -156,7 +156,7 @@ func (s *SMTPService) SendInvitationEmail(ctx context.Context, appBaseURL, email
 	if err != nil {
 		body = fmt.Sprintf(`Hello,
 
-%s has invited you to join %s on the VEN auction platform.
+%s has invited you to join %s on the rw3iss auction platform.
 
 You can accept this invitation by:
 
@@ -166,7 +166,7 @@ You can accept this invitation by:
 This invitation will expire in 7 days.
 
 Best regards,
-The VEN Team`, inviterName, orgName, code, data["InviteURL"])
+The rw3iss Team`, inviterName, orgName, code, data["InviteURL"])
 	}
 
 	return s.send(email, subject, body)
@@ -175,7 +175,7 @@ The VEN Team`, inviterName, orgName, code, data["InviteURL"])
 // SendWelcomeEmail sends a welcome email after registration
 func (s *SMTPService) SendWelcomeEmail(ctx context.Context, appBaseURL, email, firstName string) error {
 	_ = appBaseURL // SMTP welcome template is link-less; param kept for interface uniformity.
-	subject := "Welcome to VEN"
+	subject := "Welcome to rw3iss"
 	data := map[string]string{
 		"FirstName": firstName,
 	}
@@ -184,14 +184,14 @@ func (s *SMTPService) SendWelcomeEmail(ctx context.Context, appBaseURL, email, f
 	if err != nil {
 		body = fmt.Sprintf(`Hello %s,
 
-Welcome to VEN! We're excited to have you on board.
+Welcome to rw3iss! We're excited to have you on board.
 
 You can now access your account and start exploring our auction platform.
 
 If you have any questions, feel free to reach out to our support team.
 
 Best regards,
-The VEN Team`, firstName)
+The rw3iss Team`, firstName)
 	}
 
 	return s.send(email, subject, body)
@@ -214,7 +214,7 @@ Your password has been successfully changed.
 If you didn't make this change, please contact our support team immediately.
 
 Best regards,
-The VEN Team`, firstName)
+The rw3iss Team`, firstName)
 	}
 
 	return s.send(email, subject, body)
@@ -242,7 +242,7 @@ Details: %s
 If this wasn't you, please secure your account immediately by changing your password.
 
 Best regards,
-The VEN Team`, firstName, alertType, details)
+The rw3iss Team`, firstName, alertType, details)
 	}
 
 	return s.send(email, subject, body)

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ven/auth/tests/specs/helpers"
+	"github.com/rw3iss/auth/tests/specs/helpers"
 )
 
 // AUDIT 1.1: a password-reset token must be single-use even when the JWT is

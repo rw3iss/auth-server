@@ -1,4 +1,4 @@
--- Seed data for the VEN Authentication Server
+-- Seed data for the rw3iss Authentication Server
 -- Version: 002
 -- Description: Seeds system roles and permissions
 

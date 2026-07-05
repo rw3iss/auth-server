@@ -3,9 +3,9 @@
     "private": true,
     "version": "1.0.0",
     "dependencies": {
-        "@vendidit/test-tools": "github:Vendidit/tools#path:packages/test-tools"
+        "@rw3iss/test-tools": "github:rw3iss/tools#path:packages/test-tools"
     },
     "pnpm": {
-        "onlyBuiltDependencies": ["@vendidit/test-tools"]
+        "onlyBuiltDependencies": ["@rw3iss/test-tools"]
     }
 }

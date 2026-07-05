@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // A token pair minted for a consuming app must stamp app_code on BOTH the

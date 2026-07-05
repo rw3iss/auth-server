@@ -3,7 +3,7 @@
 // tooling reads (see `auth-docs/scripts/gen-versions.ts`) and what
 // the server reports at `/health` and in audit logs.
 //
-// Bump on every release. The Vendidit auth platform follows a
+// Bump on every release. The rw3iss auth platform follows a
 // coordinated-minor / independent-patch model — see auth-docs's
 // "Releasing" section for the workflow.
 package version

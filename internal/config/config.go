@@ -358,7 +358,7 @@ func Load() (*Config, error) {
 		Email: EmailConfig{
 			Provider:      getEnv("EMAIL_PROVIDER", "smtp"),
 			FromAddress:   getEnv("EMAIL_FROM_ADDRESS", "noreply@example.com"),
-			FromName:      getEnv("EMAIL_FROM_NAME", "VEN Auth"),
+			FromName:      getEnv("EMAIL_FROM_NAME", "rw3iss Auth"),
 			SMTPHost:      getEnv("SMTP_HOST", "localhost"),
 			SMTPPort:      getEnvAsInt("SMTP_PORT", 587),
 			SMTPUser:      getEnv("SMTP_USER", ""),

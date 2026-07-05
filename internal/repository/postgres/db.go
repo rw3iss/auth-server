@@ -9,8 +9,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/internal/repository"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/internal/repository"
 )
 
 // DB wraps sqlx.DB with additional functionality

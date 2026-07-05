@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ven/auth/internal/config"
+	"github.com/rw3iss/auth/internal/config"
 )
 
 // SendGridService delivers email via SendGrid's v3 native API.
@@ -133,7 +133,7 @@ func (s *SendGridService) SendWelcomeEmail(ctx context.Context, appBaseURL, emai
 	return s.renderAndSend(ctx, sendArgs{
 		Template: "welcome",
 		To:       email,
-		Subject:  "Welcome to Vendidit",
+		Subject:  "Welcome to rw3iss",
 		Preview:  "Your account is ready.",
 		Data: map[string]any{
 			"FirstName":    firstName,

@@ -29,8 +29,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ven/auth/internal/logging"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/logging"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // Event is one record's worth of audit data. JSON-encoded into the `details`

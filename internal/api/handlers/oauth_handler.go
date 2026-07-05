@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ven/auth/internal/service"
-	"github.com/ven/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/internal/service"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // OAuthHandler hosts OAuth2-style token endpoints — currently only the
@@ -29,7 +29,7 @@ func NewOAuthHandler(m2m *service.M2MService) *OAuthHandler {
 }
 
 // tokenRequest mirrors RFC 6749 §4.4.2 with one practical extension:
-// we accept both JSON bodies (Vendidit-internal callers — they're all
+// we accept both JSON bodies (rw3iss-internal callers — they're all
 // JSON-first) and `application/x-www-form-urlencoded` bodies (per the RFC).
 // The dispatch happens in Token() based on Content-Type.
 type tokenRequest struct {
@@ -47,7 +47,7 @@ type tokenRequest struct {
 //
 // Body parsing:
 //   - application/x-www-form-urlencoded — standard OAuth client behavior.
-//   - application/json (or any Content-Type with `+json`) — Vendidit-
+//   - application/json (or any Content-Type with `+json`) — rw3iss-
 //     internal callers; convenient for SDKs that already speak JSON.
 //
 // Success response shape (RFC 6749 §5.1):

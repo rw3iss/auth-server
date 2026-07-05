@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // CustomProvider implements the Provider interface for custom OAuth providers

@@ -7,10 +7,10 @@ package auth
 import (
 	"context"
 
-	"github.com/ven/auth/internal/audit"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
-	"github.com/ven/auth/pkg/shared/utils"
+	"github.com/rw3iss/auth/internal/audit"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/utils"
 )
 
 // AuthService handles authentication business logic

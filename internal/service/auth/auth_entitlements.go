@@ -16,10 +16,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/ven/auth/internal/audit"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/audit"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // EntitlementOverrides carries per-request overrides for app provisioning.

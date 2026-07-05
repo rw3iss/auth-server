@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // RoleType represents the type of role

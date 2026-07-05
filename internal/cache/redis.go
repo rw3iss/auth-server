@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/ven/auth/internal/config"
+	"github.com/rw3iss/auth/internal/config"
 )
 
 // RedisClient wraps a Redis client with graceful fallback

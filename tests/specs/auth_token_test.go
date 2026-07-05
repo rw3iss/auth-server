@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ven/auth/tests/specs/helpers"
+	"github.com/rw3iss/auth/tests/specs/helpers"
 )
 
 func TestRefreshToken_Success(t *testing.T) {

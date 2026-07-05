@@ -1,4 +1,4 @@
--- Migration 013: per-app registration policy + Vendidit org seed + auth-client-demo app seed.
+-- Migration 013: per-app registration policy + rw3iss org seed + auth-client-demo app seed.
 --
 -- The "policy" columns let an app declare its registration rules:
 --
@@ -17,21 +17,21 @@
 --       When set, users registered through this app are auto-added as
 --       members of this org with the org_member role (or whatever roles
 --       the org's invitation system would normally assign). Lets us
---       run "Vendidit-internal" apps that funnel every new user into
---       the Vendidit org without an explicit invitation step.
+--       run "rw3iss-internal" apps that funnel every new user into
+--       the rw3iss org without an explicit invitation step.
 --
 -- Design choice — why on apps, not organizations:
 --   Apps already carry registration-adjacent settings (auto_grant_on_signup,
 --   service_codes). A single org can power multiple apps with different
---   policies (e.g. a Vendidit-internal admin app + a future public-facing
+--   policies (e.g. a rw3iss-internal admin app + a future public-facing
 --   app sharing the same org but with looser rules). Keeping policy on
 --   the app lets each consumer dictate its own UX without rebuilding org
 --   structure.
 --
 -- Seeds:
---   - "Vendidit" organization — the default internal namespace.
---   - "auth-client-demo" app — points at Vendidit org, restricted to
---     @vendidit.com emails, password-only.
+--   - "rw3iss" organization — the default internal namespace.
+--   - "auth-client-demo" app — points at rw3iss org, restricted to
+--     @ryanweiss.net emails, password-only.
 
 -- 1. Policy columns on apps. -------------------------------------------
 --
@@ -58,10 +58,10 @@ COMMENT ON COLUMN apps.default_organization_id IS
 CREATE INDEX IF NOT EXISTS idx_apps_default_org ON apps(default_organization_id)
     WHERE deleted_at IS NULL AND default_organization_id IS NOT NULL;
 
--- 2. Seed the Vendidit organization. -----------------------------------
+-- 2. Seed the rw3iss organization. -----------------------------------
 -- Owner is sourced from the existing admin user, matching the pattern
 -- in 004_demo_organizations.up.sql (organizations.owner_id is NOT
--- NULL). When admin@vendidit.com isn't present (some non-demo
+-- NULL). When admin@ryanweiss.net isn't present (some non-demo
 -- deployments), the SELECT returns 0 rows and the INSERT is a clean
 -- no-op — operators on such deployments seed the org manually.
 --
@@ -71,18 +71,18 @@ CREATE INDEX IF NOT EXISTS idx_apps_default_org ON apps(default_organization_id)
 INSERT INTO organizations (id, slug, name, description, owner_id, status, created_at, updated_at)
 SELECT
     '00000000-0000-0000-0000-000000000001',
-    'vendidit',
-    'Vendidit',
-    'Default Vendidit-internal organization. Houses all internal employee accounts.',
+    'rw3iss',
+    'rw3iss',
+    'Default rw3iss-internal organization. Houses all internal employee accounts.',
     u.id,
     'active',
     NOW(),
     NOW()
-FROM users u WHERE u.email = 'admin@vendidit.com'
+FROM users u WHERE u.email = 'admin@ryanweiss.net'
 ON CONFLICT (slug) WHERE deleted_at IS NULL DO NOTHING;
 
 -- 3. Seed the auth-client-demo app. ------------------------------------
--- Points at the Vendidit org, password-only, @vendidit.com domain.
+-- Points at the rw3iss org, password-only, @ryanweiss.net domain.
 INSERT INTO apps (
     id, code, name, description,
     allowed_redirect_urls, service_codes,
@@ -94,13 +94,13 @@ VALUES (
     '00000000-0000-0000-0000-000000000002',
     'auth-client-demo',
     'Auth Client Demo',
-    'Live demo + feature catalog for @vendidit/auth-client. Internal Vendidit employees only; password authentication only.',
-    ARRAY['https://auth-demo.vendidit.com', 'https://auth-demo.vendidit.com/*', 'http://localhost:3010', 'http://localhost:3010/*'],
+    'Live demo + feature catalog for @rw3iss/auth-client. Internal rw3iss employees only; password authentication only.',
+    ARRAY['https://demo.auth.ryanweiss.net', 'https://demo.auth.ryanweiss.net/*', 'http://localhost:3010', 'http://localhost:3010/*'],
     ARRAY['auth-client-demo'],
     true,                                                             -- auto_grant_on_signup
-    ARRAY['vendidit.com'],                                            -- allowed_email_domains
+    ARRAY['ryanweiss.net'],                                            -- allowed_email_domains
     ARRAY['password'],                                                -- allowed_auth_methods
-    (SELECT id FROM organizations WHERE slug = 'vendidit'),           -- default_organization_id
+    (SELECT id FROM organizations WHERE slug = 'rw3iss'),           -- default_organization_id
     'active',
     '{}'::jsonb,
     NOW(),

@@ -1,6 +1,6 @@
 {
     "language": "go",
-    "projectName": "Vendidit Auth",
+    "projectName": "rw3iss Auth",
     "testsDir": "specs",
     "runnerArgs": ["-tags", "integration", "-timeout", "120s"],
     "excludeDirs": ["vendor", "testdata"],

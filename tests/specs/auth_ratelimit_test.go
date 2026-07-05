@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ven/auth/tests/specs/helpers"
+	"github.com/rw3iss/auth/tests/specs/helpers"
 )
 
 func TestRateLimit_UnderLimit(t *testing.T) {

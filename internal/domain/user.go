@@ -2,8 +2,8 @@
 package domain
 
 import (
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // DefaultNamespace is the home user pool for any user without an

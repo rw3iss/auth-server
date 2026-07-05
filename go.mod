@@ -1,4 +1,4 @@
-module github.com/ven/auth
+module github.com/rw3iss/auth
 
 go 1.25.5
 

@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // Permission represents an action that can be performed in the system

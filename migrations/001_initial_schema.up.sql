@@ -1,4 +1,4 @@
--- Initial schema for the VEN Authentication Server
+-- Initial schema for the rw3iss Authentication Server
 -- Version: 001
 -- Description: Creates all base tables for users, organizations, roles, permissions, and tokens
 

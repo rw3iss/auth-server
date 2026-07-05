@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ven/auth/internal/api/dto"
-	"github.com/ven/auth/internal/api/middleware"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/internal/service"
-	auth "github.com/ven/auth/internal/service/auth"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/api/dto"
+	"github.com/rw3iss/auth/internal/api/middleware"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/service"
+	auth "github.com/rw3iss/auth/internal/service/auth"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // UserHandler handles user management endpoints

@@ -6,8 +6,8 @@
 -- originating app's frontend rather than the global CLIENT_URL.
 --
 -- Why this exists: the auth-server is multi-tenant. A user who
--- registers via the demo at auth-demo.vendidit.com shouldn't get a
--- verify link pointing at vendidit.com (or any other app's domain).
+-- registers via the demo at demo.auth.ryanweiss.net shouldn't get a
+-- verify link pointing at ryanweiss.net (or any other app's domain).
 -- Each app declares its canonical frontend; the email layer reads
 -- that and constructs links like `${frontend_url}/auth/verify-email`.
 --
@@ -29,5 +29,5 @@ ALTER TABLE apps
     ADD COLUMN frontend_url VARCHAR(500);
 
 UPDATE apps
-   SET frontend_url = 'https://auth-demo.vendidit.com'
+   SET frontend_url = 'https://demo.auth.ryanweiss.net'
  WHERE code = 'auth-client-demo';

@@ -17,7 +17,7 @@ import (
 // Issuer is the value placed in the otpauth:// URI so the user's
 // authenticator app labels the entry. Keeping it stable across rotations
 // matters — changing it would create "ghost" entries in users' apps.
-const Issuer = "Vendidit"
+const Issuer = "rw3iss"
 
 // Window controls clock-skew tolerance for code validation. We allow one
 // 30-second step before and after the current step (total 90s drift), which

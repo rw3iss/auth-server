@@ -10,13 +10,13 @@ import (
 	"context"
 	"strings"
 
-	"github.com/ven/auth/internal/audit"
-	"github.com/ven/auth/internal/auth/password"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
-	"github.com/ven/auth/pkg/shared/utils"
+	"github.com/rw3iss/auth/internal/audit"
+	"github.com/rw3iss/auth/internal/auth/password"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/utils"
 )
 
 // MaxBulkImportRows caps a single request. Documented + enforced so a caller

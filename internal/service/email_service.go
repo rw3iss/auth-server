@@ -8,7 +8,7 @@ import "context"
 // password-reset, magic-link, invitation) takes an `appBaseURL`
 // parameter as its first argument after the context. This is the
 // originating app's canonical frontend origin — e.g.
-// "https://auth-demo.vendidit.com". The email layer appends the
+// "https://demo.auth.ryanweiss.net". The email layer appends the
 // conventional path for each flow (e.g. "/auth/verify-email"),
 // producing a link that lands inside the app that initiated the
 // send rather than a global default.

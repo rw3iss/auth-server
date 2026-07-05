@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/ven/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // BodyLimit returns middleware that caps the request body at maxBytes via

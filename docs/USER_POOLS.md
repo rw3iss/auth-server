@@ -56,7 +56,7 @@ needed — pools stay virtual):
 | POST | `/admin/users/{id}/namespaces` | Tag the user into an extra pool (idempotent; tagging the home pool → 400). |
 | DELETE | `/admin/users/{id}/namespaces/{ns}` | Remove a tag. Removing the home pool → 400 ("set a different default pool instead"). |
 
-SDK: `@vendidit/auth-client` `NamespacesFlow` (`listNamespaces` is
+SDK: `@rw3iss/auth-client` `NamespacesFlow` (`listNamespaces` is
 cached 60s client-side for type-ahead pool pickers; mutations
 invalidate). Demo UI: Applications & Services → **User pools** tab
 (catalog), the app editor's pool pickers, and the admin user page's

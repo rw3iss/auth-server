@@ -11,12 +11,12 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/pkg/shared/utils"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/pkg/shared/utils"
 )
 
 const (
-	adminEmail     = "admin@vendidit.com"
+	adminEmail     = "admin@ryanweiss.net"
 	adminFirstName = "Super"
 	adminLastName  = "Admin"
 	passwordLength = 24

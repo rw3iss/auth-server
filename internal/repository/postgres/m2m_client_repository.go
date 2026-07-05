@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/internal/repository"
-	sharederrors "github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/repository"
+	sharederrors "github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // M2MClientRepository implements repository.M2MClientRepository against

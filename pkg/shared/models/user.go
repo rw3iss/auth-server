@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // BaseUser represents the core user information shared across the platform

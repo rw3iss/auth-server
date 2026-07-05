@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ven/auth/pkg/migration"
+	"github.com/rw3iss/auth/pkg/migration"
 )
 
 const verifyPath = "/api/internal/verify-legacy-password"

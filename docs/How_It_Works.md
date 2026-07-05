@@ -1,6 +1,6 @@
-# How It Works — Vendidit Auth Server
+# How It Works — rw3iss Auth Server
 
-The Go auth server is the **single source of truth** for identity on the Vendidit platform. Every client and every backend service that cares about "who is this user and what can they do?" ultimately gets its answer from here. This doc covers the domain flow — how a request turns into a JWT, how that JWT carries enough claims for the rest of the platform to avoid a second network call, and why the multi-tenant org model looks the way it does.
+The Go auth server is the **single source of truth** for identity on the rw3iss platform. Every client and every backend service that cares about "who is this user and what can they do?" ultimately gets its answer from here. This doc covers the domain flow — how a request turns into a JWT, how that JWT carries enough claims for the rest of the platform to avoid a second network call, and why the multi-tenant org model looks the way it does.
 
 For dev setup + commands see [`Development.md`](./Development.md). For the full architecture diagram and API reference, the root [`../README.md`](../README.md) is authoritative.
 
@@ -219,7 +219,7 @@ Google, Apple, Microsoft, and GitHub OAuth 2.0 providers are supported. The flow
     POST /auth/sso/url
     {
       "provider": "google",
-      "redirect_url": "https://app.vendidit.com/auth/sso/callback",
+      "redirect_url": "https://app.ryanweiss.net/auth/sso/callback",
       "organization_id": null,         // optional
       "invite_code": null,             // optional, for joining an org via invite
       "code_challenge": "...",         // optional — public clients SHOULD send PKCE

@@ -28,7 +28,7 @@ import (
 	cip "github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	ciptypes "github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider/types"
 
-	"github.com/ven/auth/pkg/migration"
+	"github.com/rw3iss/auth/pkg/migration"
 )
 
 // Config holds Cognito pool connection details. All required; the

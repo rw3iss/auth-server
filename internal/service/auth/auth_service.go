@@ -24,17 +24,17 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/ven/auth/internal/auth/jwt"
-	"github.com/ven/auth/internal/auth/password"
-	"github.com/ven/auth/internal/auth/sso"
-	"github.com/ven/auth/internal/cache"
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/internal/repository"
-	"github.com/ven/auth/internal/service"
-	"github.com/ven/auth/pkg/migration"
-	"github.com/ven/auth/pkg/shared/types"
-	"github.com/ven/auth/pkg/shared/utils"
+	"github.com/rw3iss/auth/internal/auth/jwt"
+	"github.com/rw3iss/auth/internal/auth/password"
+	"github.com/rw3iss/auth/internal/auth/sso"
+	"github.com/rw3iss/auth/internal/cache"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/repository"
+	"github.com/rw3iss/auth/internal/service"
+	"github.com/rw3iss/auth/pkg/migration"
+	"github.com/rw3iss/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/utils"
 )
 
 // AuthService handles authentication business logic
@@ -54,7 +54,7 @@ type AuthService struct {
 	tokenCache   cache.TokenCache // AUDIT 1.17: per-account rate-limit primitive
 
 	// Optional legacy-auth fallback for migrating users off a previous
-	// identity system (Cognito in Vendidit's case). Wired in main.go when
+	// identity system (Cognito in rw3iss's case). Wired in main.go when
 	// COGNITO_AUTO_MIGRATE_ENABLED=true and a working Cognito adapter
 	// initialised cleanly. Nil otherwise — AuthService.Login skips the
 	// migration branch entirely.

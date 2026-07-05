@@ -15,7 +15,7 @@ SHELL := /bin/bash
 # ─── Help ────────────────────────────────────────────────────────────
 help: ## Show this help
 	@echo ""
-	@echo "  Vendidit Auth Server — available commands"
+	@echo "  rw3iss Auth Server — available commands"
 	@echo "  ──────────────────────────────────────────"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -103,13 +103,13 @@ DEPLOY_DIR  ?= ~/apps/auth-server
 build-linux: ## Cross-compile for Linux (amd64)
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/auth-server-linux ./cmd/server/main.go
 
-deploy: build-linux ## Build + deploy to ven-internal (new-auth.vendidit.com)
+deploy: build-linux ## Build + deploy to ven-internal (auth.ryanweiss.net)
 	scp -i $(DEPLOY_KEY) bin/auth-server-linux $(DEPLOY_USER)@$(DEPLOY_HOST):$(DEPLOY_DIR)/auth-server.new
 	scp -i $(DEPLOY_KEY) -r migrations $(DEPLOY_USER)@$(DEPLOY_HOST):$(DEPLOY_DIR)/
 	ssh -i $(DEPLOY_KEY) $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_DIR) && mv -f auth-server.new auth-server && chmod +x auth-server && sudo systemctl restart auth-server && sleep 2 && curl -sf http://localhost:8090/health"
 	@echo ""
 	@echo "  Deployed to $(DEPLOY_HOST) — auth-server restarted"
-	@echo "  Health: https://new-auth.vendidit.com/health"
+	@echo "  Health: https://auth.ryanweiss.net/health"
 	@echo ""
 
 deploy-binary: build-linux ## Deploy binary only (no migrations), faster

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/ven/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // RedisStateStore stores OAuth state in Redis with atomic GET+DEL on

@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/ven/auth/internal/background"
-	"github.com/ven/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/internal/background"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // JobHandler exposes the background.Scheduler as a system_admin admin API.

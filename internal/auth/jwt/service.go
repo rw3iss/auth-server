@@ -11,14 +11,14 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/ven/auth/internal/audit"
-	"github.com/ven/auth/internal/cache"
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/internal/repository"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
-	"github.com/ven/auth/pkg/shared/utils"
+	"github.com/rw3iss/auth/internal/audit"
+	"github.com/rw3iss/auth/internal/cache"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/repository"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/utils"
 )
 
 // parserLeeway is the clock-skew tolerance applied to exp/nbf checks. 30s is

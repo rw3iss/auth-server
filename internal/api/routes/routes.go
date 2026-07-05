@@ -7,15 +7,15 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/ven/auth/internal/api/handlers"
-	"github.com/ven/auth/internal/api/middleware"
-	"github.com/ven/auth/internal/auth/jwt"
-	"github.com/ven/auth/internal/background"
-	"github.com/ven/auth/internal/cache"
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/internal/repository"
-	"github.com/ven/auth/internal/service"
-	auth "github.com/ven/auth/internal/service/auth"
+	"github.com/rw3iss/auth/internal/api/handlers"
+	"github.com/rw3iss/auth/internal/api/middleware"
+	"github.com/rw3iss/auth/internal/auth/jwt"
+	"github.com/rw3iss/auth/internal/background"
+	"github.com/rw3iss/auth/internal/cache"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/internal/repository"
+	"github.com/rw3iss/auth/internal/service"
+	auth "github.com/rw3iss/auth/internal/service/auth"
 )
 
 // Router wraps http.ServeMux with additional functionality

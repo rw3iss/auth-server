@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/ven/auth/pkg/migration"
+	"github.com/rw3iss/auth/pkg/migration"
 )
 
 const testSecret = "shared-secret-xyz"

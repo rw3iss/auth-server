@@ -1,10 +1,10 @@
-# new/auth — Vendidit Auth Server (Go)
+# new/auth — rw3iss Auth Server (Go)
 
-Standalone multi-tenant authentication and identity service. Single source of truth for users, organizations, roles, permissions, sessions, and refresh tokens across the Vendidit platform. Issues short-lived HS256 JWTs carrying roles + permissions as claims so downstream services (`../../auction/api/`) can validate locally without a network round-trip.
+Standalone multi-tenant authentication and identity service. Single source of truth for users, organizations, roles, permissions, sessions, and refresh tokens across the rw3iss platform. Issues short-lived HS256 JWTs carrying roles + permissions as claims so downstream services (`../../auction/api/`) can validate locally without a network round-trip.
 
 **Status:** production. Phase 1 is feature-complete for password + SSO auth, multi-tenant orgs, refresh-token rotation, rate limiting, session management, and account-security primitives. Integration test coverage via a real-Postgres + real-Redis harness. Horizontally scalable (stateless; shared Redis + Postgres).
 
-**Live at:** `https://new-auth.vendidit.com/` (health: `/health`, API: `/api/v1/...`). Deployed to **ven-internal** EC2 (3.12.0.133) as a native systemd service `auth-server`, port 8090, nginx-fronted. CI/CD via `.github/workflows/deploy.yml` — push to `production` branch -> build + test + scp + restart. See `README.md` §Deployment for the full operator runbook.
+**Live at:** `https://auth.ryanweiss.net/` (health: `/health`, API: `/api/v1/...`). Deployed to **ven-internal** EC2 (3.12.0.133) as a native systemd service `auth-server`, port 8090, nginx-fronted. CI/CD via `.github/workflows/deploy.yml` — push to `production` branch -> build + test + scp + restart. See `README.md` §Deployment for the full operator runbook.
 
 ---
 
@@ -128,7 +128,7 @@ AUTH_ACCOUNT_ATTEMPTS_WINDOW=1h
 TRUSTED_PROXIES=                 # comma-separated CIDRs; empty = ignore XFF
 
 # CORS
-CORS_ORIGINS=http://localhost:3001,https://next.vendidit.com  # `*` refused in production
+CORS_ORIGINS=http://localhost:3001,https://next.ryanweiss.net  # `*` refused in production
 
 # App scoping
 AUTH_ALLOW_BASE_USER_LOGIN=false # if true, /auth/login may omit app_code
@@ -269,7 +269,7 @@ migrations/              Raw SQL, applied in filename order. Current set:
                          010 users.two_factor_confirmed_at,
                          011 audit-preserving FK relaxation for hard-delete,
                          012 m2m_clients (OAuth2 client_credentials registry),
-                         013 per-app registration policy + Vendidit/demo seeds,
+                         013 per-app registration policy + rw3iss/demo seeds,
                          014 magic links, 015 apps.frontend_url,
                          016 admin role short-form names,
                          017 user pools / namespaces (users.namespace +
@@ -474,7 +474,7 @@ Base path: `${API_PREFIX}` (default `/api/v1`).
 - `/admin/organizations` — CRUD + members (data ops). `PUT .../members/{userId}/roles` replaces a member's org-role set (set semantics; org-scoped roles only) — backs org-admin reassignment UIs. `GET /admin/users` supports `?organization_id=` and `?app_id=` membership filters (fixed/added 2026-06-10 — previously parsed but never applied).
 - `/admin/jobs` — list / get / trigger / pause / resume background jobs (data ops).
 - `/admin/apps` — CRUD apps + grant/revoke `user_apps` membership (**system_admin only**).
-  - **Per-app webhooks (migration 019, 2026-06-11):** `apps.webhooks` JSONB — `[{name, url, events, enabled}]`, settable on create + PATCH (non-nil replaces the whole list). On NEW-user registration through an app, the server fans `user.registered` out to every enabled subscribed hook: async goroutines, 3 attempts (5s timeout each, linear backoff, permanent-4xx no-retry), never blocks/fails the registration. Payload = event + app + user (incl. pools) + org + the FULL registration body (password redacted, extra/unknown client fields passed through verbatim) + request context (ip, user-agent, issuer). `hooks.slack.com` URLs get a Slack-formatted `{"text"}` summary instead; everyone else gets the JSON envelope + `X-Vendidit-Event` header. Dispatch code: `internal/webhooks/app_webhooks.go`; wiring: `AuthService.dispatchRegistrationWebhooks`. `GET /admin/users/{userId}/apps` lists a user's memberships (adminChain). PATCH also accepts the registration-policy fields (`frontend_url` — "" clears to NULL, `allowed_email_domains`, `allowed_auth_methods`, `default_organization_id` — "" clears) since 2026-06-10; only `code` stays immutable.
+  - **Per-app webhooks (migration 019, 2026-06-11):** `apps.webhooks` JSONB — `[{name, url, events, enabled}]`, settable on create + PATCH (non-nil replaces the whole list). On NEW-user registration through an app, the server fans `user.registered` out to every enabled subscribed hook: async goroutines, 3 attempts (5s timeout each, linear backoff, permanent-4xx no-retry), never blocks/fails the registration. Payload = event + app + user (incl. pools) + org + the FULL registration body (password redacted, extra/unknown client fields passed through verbatim) + request context (ip, user-agent, issuer). `hooks.slack.com` URLs get a Slack-formatted `{"text"}` summary instead; everyone else gets the JSON envelope + `X-rw3iss-Event` header. Dispatch code: `internal/webhooks/app_webhooks.go`; wiring: `AuthService.dispatchRegistrationWebhooks`. `GET /admin/users/{userId}/apps` lists a user's memberships (adminChain). PATCH also accepts the registration-policy fields (`frontend_url` — "" clears to NULL, `allowed_email_domains`, `allowed_auth_methods`, `default_organization_id` — "" clears) since 2026-06-10; only `code` stays immutable.
 - `/admin/namespaces` + `/admin/users/{userId}/namespace(s)` — user-pool administration (**system_admin only**, 2026-06-10). `GET /admin/namespaces` aggregates every pool (users by home/tag + referencing app codes; zero-user pools included). Per-user: `GET .../namespaces` (home + tags), `PUT .../namespace` (move home pool; 409 on per-pool email conflict; redundant tag cleaned), `POST .../namespaces` + `DELETE .../namespaces/{ns}` (tags; the home pool is refused — move it instead).
 - `/admin/permissions/register` — service self-registration (**system_admin only**).
 - `/admin/m2m-clients` — OAuth2 client_credentials registry. `POST` creates a client (returns plaintext secret ONCE); `GET` lists non-revoked; `GET /{id}` fetches one; `DELETE /{id}` soft-revokes. **system_admin only** — these credentials authorize platform-internal service calls and live below every other admin tier. Backed by migration 012 (`m2m_clients` table). Closes the `AUTH_REGISTRATION_TOKEN` shim noted in `auth-server-client/README.md`.

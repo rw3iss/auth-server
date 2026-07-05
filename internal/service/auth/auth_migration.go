@@ -8,12 +8,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ven/auth/internal/audit"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/pkg/migration"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/audit"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/pkg/migration"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // AuthService handles authentication business logic

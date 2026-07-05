@@ -94,7 +94,7 @@ tags**, not separate identities.
   (`auth_registration.go`, `GetByEmailInNamespaces`) already does this — keep it.
 
 > Model (A) per-namespace uniqueness stays in the schema, but the *operating
-> convention* for the Vendidit suite is home=`default` + tags. The work below
+> convention* for the rw3iss suite is home=`default` + tags. The work below
 > makes the auxiliary flows honor that convention instead of silently assuming
 > a bare global `default` lookup.
 
@@ -531,8 +531,8 @@ app — that's §7.2.
 | org role | **always `org_member`** (not configurable) | — | — |
 | additional apps | **none** (no linked-apps concept) | none | none |
 
-So no single path delivers "app membership + `vendidit-marketplace` org as
-**seller** + `vendidit-marketplace` app". `seller` role code exists
+So no single path delivers "app membership + `rw3iss-marketplace` org as
+**seller** + `rw3iss-marketplace` app". `seller` role code exists
 (`pkg/shared/models/role.go`), `GetOrganizationBySlug` exists — building blocks
 are present; the config + wiring are net-new.
 
@@ -563,7 +563,7 @@ are present; the config + wiring are net-new.
 
 ### 7.3 The `globalsku` end-state config (after 7.2 ships)
 
-Pre-reqs: the `vendidit-marketplace` **org** and **app** exist (create via
+Pre-reqs: the `rw3iss-marketplace` **org** and **app** exist (create via
 `POST /admin/organizations` and `POST /admin/apps` if not).
 
 ```jsonc
@@ -573,20 +573,20 @@ PATCH /api/v1/admin/apps/<globalsku_id>      // system_admin
   "allowed_auth_methods": ["password","google","apple","facebook","linkedin"],
   "registration_namespace": "default",
   "read_namespaces": ["default","globalsku"],
-  "default_organization_id": "<vendidit-marketplace org id>",
+  "default_organization_id": "<rw3iss-marketplace org id>",
   "default_role_code": "seller",                 // NEW (§7.2)
-  "linked_app_codes": ["vendidit-marketplace"]   // NEW (§7.2)
+  "linked_app_codes": ["rw3iss-marketplace"]   // NEW (§7.2)
 }
 ```
 
 Result: any user who logs in / registers / is JIT-migrated through `globalsku`
-becomes a member of the `globalsku` **and** `vendidit-marketplace` apps, and a
-**seller** in the `vendidit-marketplace` org — automatically, idempotently.
+becomes a member of the `globalsku` **and** `rw3iss-marketplace` apps, and a
+**seller** in the `rw3iss-marketplace` org — automatically, idempotently.
 
 ### 7.4 Acceptance
 
 - Existing auth-server user logs in via `globalsku` → no 403; gains `globalsku` +
-  `vendidit-marketplace` app membership + seller org membership. Re-login = no-op.
+  `rw3iss-marketplace` app membership + seller org membership. Re-login = no-op.
 - Brand-new register via `globalsku` → same entitlements at registration time
   (not deferred to a second login).
 - JIT-migrated user (via the GlobalSKU `LegacyAuthProvider`, §5.1) → same set.

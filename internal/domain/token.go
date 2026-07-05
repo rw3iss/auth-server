@@ -1,8 +1,8 @@
 package domain
 
 import (
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // RefreshToken represents a refresh token stored in the database.

@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/ven/auth/internal/api/middleware"
-	"github.com/ven/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/internal/api/middleware"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // writeJSON writes a JSON response

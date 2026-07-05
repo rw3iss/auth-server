@@ -8,13 +8,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/ven/auth/internal/auth/jwt"
-	"github.com/ven/auth/internal/auth/sso"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/models"
-	"github.com/ven/auth/pkg/shared/types"
-	"github.com/ven/auth/pkg/shared/utils"
+	"github.com/rw3iss/auth/internal/auth/jwt"
+	"github.com/rw3iss/auth/internal/auth/sso"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/models"
+	"github.com/rw3iss/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/pkg/shared/utils"
 )
 
 // AuthService handles authentication business logic

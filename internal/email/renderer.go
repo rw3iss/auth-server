@@ -60,9 +60,9 @@ type Renderer struct {
 // RendererConfig is the boot-time inputs the renderer needs. All
 // optional; sensible defaults applied for empty fields.
 type RendererConfig struct {
-	BrandName    string // default "Vendidit"
+	BrandName    string // default "rw3iss"
 	BrandColor   string // default "#5b8def"
-	SupportEmail string // default "support@vendidit.com"
+	SupportEmail string // default "support@ryanweiss.net"
 	OverrideDir  string // EMAIL_TEMPLATES_PATH; "" disables filesystem override
 }
 
@@ -77,13 +77,13 @@ func NewRenderer(cfg RendererConfig) *Renderer {
 		loaded:       map[string]*template.Template{},
 	}
 	if r.brandName == "" {
-		r.brandName = "Vendidit"
+		r.brandName = "rw3iss"
 	}
 	if r.brandColor == "" {
 		r.brandColor = "#5b8def"
 	}
 	if r.supportEmail == "" {
-		r.supportEmail = "support@vendidit.com"
+		r.supportEmail = "support@ryanweiss.net"
 	}
 	return r
 }

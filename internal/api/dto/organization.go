@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/ven/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/domain"
 )
 
 // OrganizationResponse represents an organization in API responses

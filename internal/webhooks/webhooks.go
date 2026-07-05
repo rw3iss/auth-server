@@ -18,7 +18,7 @@
 //   - Operators configure a list of endpoints via env (WEBHOOK_ENDPOINTS,
 //     comma-separated) and a signing secret (WEBHOOK_SECRET).
 //   - Every dispatch carries an HMAC-SHA256 signature in
-//     X-Vendidit-Signature so the receiver can validate authenticity.
+//     X-rw3iss-Signature so the receiver can validate authenticity.
 //   - Dispatcher runs out-of-band via a channel-buffered goroutine
 //     (mirroring internal/audit's writer) so handlers never block on a
 //     slow webhook receiver. Drop-on-overflow with a counter line so

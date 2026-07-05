@@ -2,8 +2,8 @@
 package dto
 
 import (
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // RegisterRequest represents a registration request

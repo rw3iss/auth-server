@@ -1,6 +1,6 @@
-# App Registration — Vendidit Auth
+# App Registration — rw3iss Auth
 
-How a new app gets wired into the Vendidit auth system. Every consumer — backend service, frontend SPA, mobile client, or internal tool — goes through this same flow, once.
+How a new app gets wired into the rw3iss auth system. Every consumer — backend service, frontend SPA, mobile client, or internal tool — goes through this same flow, once.
 
 For the broader picture (token lifecycle, multi-tenant model) see [`How_It_Works.md`](./How_It_Works.md). This doc covers *only* the onboarding contract.
 
@@ -10,7 +10,7 @@ For the broader picture (token lifecycle, multi-tenant model) see [`How_It_Works
 
 ```
 1. system_admin POSTs to /admin/apps with the new code + allowed redirect URLs
-2. New app sets two env vars: VENDIDIT_APP_CODE + JWT_ACCESS_SECRET
+2. New app sets two env vars: RW3ISS_APP_CODE + JWT_ACCESS_SECRET
 3. New app calls /auth/login with app_code; gets back a JWT scoped to that app
 ```
 
@@ -22,7 +22,7 @@ Three steps total. Step 1 is one-time per app. Steps 2-3 are normal config + run
 
 ## 1. Concepts in one paragraph each
 
-**App.** A user-facing consumer of Vendidit auth — anything that initiates logins or holds access tokens. Identified by a stable `code` (e.g. `marketplace-v2`, `release-manager`). One row in the `apps` table. Owns its redirect-URL allowlist, opt-in/out of auto-grant, and the set of permission *services* it consumes. Required before tokens can be minted for it.
+**App.** A user-facing consumer of rw3iss auth — anything that initiates logins or holds access tokens. Identified by a stable `code` (e.g. `marketplace-v2`, `release-manager`). One row in the `apps` table. Owns its redirect-URL allowlist, opt-in/out of auto-grant, and the set of permission *services* it consumes. Required before tokens can be minted for it.
 
 **Service.** A backend that owns and declares a slice of the permission catalog. Identified by a stable string (e.g. `auction-api`, `billing`). A service self-registers its permissions at boot via `POST /admin/permissions/register`; auth-server reconciles (upserts new, prunes removed). Most apps are 1:1 with a service of the same code. Pure-frontend apps may have no service at all and still work fine — they just don't carry custom permissions.
 
@@ -36,7 +36,7 @@ A system_admin creates the app row via the admin REST API.
 
 ### Step-by-step
 
-1. **Get a system_admin access token.** Log in via the demo at [auth-demo.vendidit.com](https://auth-demo.vendidit.com) as a user with the `system_admin` role (today: `demotest@vendidit.com`). Copy the access token from the browser devtools (any authed request → `Authorization` header), or log in over the REST API and capture the token from the response.
+1. **Get a system_admin access token.** Log in via the demo at [demo.auth.ryanweiss.net](https://demo.auth.ryanweiss.net) as a user with the `system_admin` role (today: `demotest@ryanweiss.net`). Copy the access token from the browser devtools (any authed request → `Authorization` header), or log in over the REST API and capture the token from the response.
 
 2. **POST to `/admin/apps`** with the new app's config:
 
@@ -49,14 +49,14 @@ Content-Type: application/json
   "code": "marketplace-v2",
   "name": "Marketplace v2",
   "description": "Public marketplace, browser SPA",
-  "allowed_redirect_urls": ["https://marketplace-v2.vendidit.com/auth/callback"],
+  "allowed_redirect_urls": ["https://marketplace-v2.ryanweiss.net/auth/callback"],
   "service_codes": ["marketplace-v2"],       // optional; defaults to [code]
   "auto_grant_on_signup": true,              // optional; default false
   "registration_namespace": "default",       // optional WRITE pool; default "default"
   "read_namespaces": ["default"],            // optional READ pools; default [write ns]
   "default_organization_id": "<org id>",     // optional; org new users are auto-added to
   "default_role_code": "seller",             // optional (§7); org role for that membership; default org_member
-  "linked_app_codes": ["vendidit-marketplace"], // optional (§7); extra apps to also grant
+  "linked_app_codes": ["rw3iss-marketplace"], // optional (§7); extra apps to also grant
   "status": "active"
 }
 ```
@@ -64,20 +64,20 @@ Content-Type: application/json
 Quick `curl` form:
 
 ```bash
-curl -X POST https://new-auth.vendidit.com/api/v1/admin/apps \
-  -H "Authorization: Bearer $VENDIDIT_ADMIN_TOKEN" \
+curl -X POST https://auth.ryanweiss.net/api/v1/admin/apps \
+  -H "Authorization: Bearer $RW3ISS_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "code": "marketplace-v2",
     "name": "Marketplace v2",
-    "allowed_redirect_urls": ["https://marketplace-v2.vendidit.com/auth/callback"],
+    "allowed_redirect_urls": ["https://marketplace-v2.ryanweiss.net/auth/callback"],
     "auto_grant_on_signup": true
   }'
 ```
 
 ### Future: `auth-cli`
 
-A dedicated `@vendidit/auth-cli` wrapping this (`auth login`, `auth apps:create`, `auth users:roles`, `auth m2m:create`, …) is on the roadmap. It will use the developer's system_admin token (cached at `~/.vendidit/auth` or `VENDIDIT_ADMIN_TOKEN` env) and POST to the same REST surface. Until it ships, the curl/Postman form above is canonical.
+A dedicated `@rw3iss/auth-cli` wrapping this (`auth login`, `auth apps:create`, `auth users:roles`, `auth m2m:create`, …) is on the roadmap. It will use the developer's system_admin token (cached at `~/.rw3iss/auth` or `RW3ISS_ADMIN_TOKEN` env) and POST to the same REST surface. Until it ships, the curl/Postman form above is canonical.
 
 Response:
 
@@ -137,7 +137,7 @@ role. Example:
 ```jsonc
 POST /auth/login
 { "email": "...", "password": "...", "app_code": "globalsku",
-  "role_code": "buyer", "linked_app_codes": ["vendidit-marketplace"] }
+  "role_code": "buyer", "linked_app_codes": ["rw3iss-marketplace"] }
 ```
 
 ### Webhooks (migration 019)
@@ -164,7 +164,7 @@ or fails on a webhook. The JSON envelope carries the app, the new user
 (with pools), any org landed in, the **complete registration body**
 (password redacted — extra client fields like referral codes pass
 through verbatim), and request context (ip / user-agent / issuer),
-plus an `X-Vendidit-Event` header. URLs under `hooks.slack.com`
+plus an `X-rw3iss-Event` header. URLs under `hooks.slack.com`
 receive a Slack-formatted `{"text": …}` summary instead of the raw
 envelope.
 
@@ -199,7 +199,7 @@ identity in two pools. Worked examples + the full semantics live in
 [`USER_POOLS.md`](./USER_POOLS.md).
 
 Example — the Wristleo app owns its own pool but still lets existing
-Vendidit users in:
+rw3iss users in:
 
 ```json
 {
@@ -224,8 +224,8 @@ The new app sets two env vars and calls the API. The shape of "calling the API" 
 ### Required env
 
 ```
-VENDIDIT_AUTH_URL=https://auth.vendidit.com
-VENDIDIT_APP_CODE=marketplace-v2
+RW3ISS_AUTH_URL=https://auth.ryanweiss.net
+RW3ISS_APP_CODE=marketplace-v2
 JWT_ACCESS_SECRET=<shared with auth-server, ≥32 chars>
 ```
 
@@ -234,11 +234,11 @@ The JWT secret is the same one the auth-server signs with; sharing it lets the c
 ### Backend-only API (Node)
 
 ```ts
-import { AuthClientModule } from '@vendidit/auth-server-nest';
+import { AuthClientModule } from '@rw3iss/auth-server-nest';
 
 AuthClientModule.forRoot({
-  authUrl: process.env.VENDIDIT_AUTH_URL,
-  appCode: process.env.VENDIDIT_APP_CODE,
+  authUrl: process.env.RW3ISS_AUTH_URL,
+  appCode: process.env.RW3ISS_APP_CODE,
   jwtSecret: process.env.JWT_ACCESS_SECRET,
 });
 
@@ -252,15 +252,15 @@ The SDK validates the bearer token locally and asserts `claims.app_id` matches t
 
 ### Frontend SPA (Preact / React)
 
-The browser SDK ([`@vendidit/auth-client`](https://github.com/Vendidit/auth-client)) is the canonical way to integrate. It handles `app_code` on every login, refresh-token rotation, BroadcastChannel cross-tab sync, and PKCE for SSO. See [docs.auth.vendidit.com/auth-client/](https://docs.auth.vendidit.com/auth-client/overview/) for the full surface.
+The browser SDK ([`@rw3iss/auth-client`](https://github.com/rw3iss/auth-client)) is the canonical way to integrate. It handles `app_code` on every login, refresh-token rotation, BroadcastChannel cross-tab sync, and PKCE for SSO. See [docs.auth.ryanweiss.net/auth-client/](https://docs.auth.ryanweiss.net/auth-client/overview/) for the full surface.
 
 Minimal example:
 
 ```ts
-import { createAuthClient } from '@vendidit/auth-client';
+import { createAuthClient } from '@rw3iss/auth-client';
 
 const auth = createAuthClient({
-  apiBaseUrl: 'https://new-auth.vendidit.com/api/v1',
+  apiBaseUrl: 'https://auth.ryanweiss.net/api/v1',
   appCode: 'marketplace-v2',
 });
 
@@ -324,7 +324,7 @@ This step is **purely opt-in**. Apps that don't need custom permissions never ca
 
 Two modes, set on the `apps` row:
 
-- **`auto_grant_on_signup: true`** — every user who logs into the app gets a `user_apps` row on first attempt. Use for public consumer apps where any Vendidit user can enter.
+- **`auto_grant_on_signup: true`** — every user who logs into the app gets a `user_apps` row on first attempt. Use for public consumer apps where any rw3iss user can enter.
 - **`auto_grant_on_signup: false`** (default) — users must be explicitly granted:
   ```http
   POST /admin/users/{userId}/apps/{appId}
@@ -347,7 +347,7 @@ This sets the `user_apps.status` to `revoked` and bumps the user's token version
 | Step | Required? | Who | When |
 |---|---|---|---|
 | Create the app row | **Yes** | system_admin (POST /admin/apps) | Once per app |
-| Set `VENDIDIT_APP_CODE` + `JWT_ACCESS_SECRET` env | **Yes** | the new app | Per environment |
+| Set `RW3ISS_APP_CODE` + `JWT_ACCESS_SECRET` env | **Yes** | the new app | Per environment |
 | Pass `app_code` on `/auth/login` | **Yes** | the new app | Every login |
 | Register a service catalog (`permissions/register`) | No | the new app's backend | Boot, only if the app owns custom permissions |
 | Grant users via `user_apps` | No (if `auto_grant_on_signup`) | system_admin or auto | First login or explicit grant |
@@ -358,7 +358,7 @@ This sets the `user_apps.status` to `revoked` and bumps the user's token version
 ## 8. Common pitfalls
 
 - **Forgetting `app_code` on login.** Returns either a 400 (when `app_code` is required globally) or a token without an `app_id` claim, depending on config. Downstream services that enforce `claims.app_id == self.app_id` will reject the token.
-- **Redirect URL mismatch.** `https://marketplace-v2.vendidit.com/auth/callback` registered, request goes to `https://marketplace-v2.vendidit.com/auth/callback/` (trailing slash) — strict match, fails. Use the trailing `*` wildcard if you need a path prefix.
+- **Redirect URL mismatch.** `https://marketplace-v2.ryanweiss.net/auth/callback` registered, request goes to `https://marketplace-v2.ryanweiss.net/auth/callback/` (trailing slash) — strict match, fails. Use the trailing `*` wildcard if you need a path prefix.
 - **JWT secret drift.** Auth-server rotates `JWT_ACCESS_SECRET`, the consumer doesn't pick up the change. Validation fails for every request. Rotations need to be coordinated; the dual-secret rotation feature on the Phase C roadmap will fix this.
 - **Stale `service_codes` after splitting a backend.** If marketplace-v2's billing logic gets pulled into a separate `billing` service, update `apps.service_codes` to `["marketplace-v2", "billing"]`. Otherwise marketplace-v2 users lose access to billing permissions in their JWT.
 

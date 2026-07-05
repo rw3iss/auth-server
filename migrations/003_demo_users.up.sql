@@ -4,25 +4,25 @@
 -- sqlx scanner fails on NULL → string without a sql.NullString wrapper.
 
 INSERT INTO users (email, password_hash, first_name, last_name, display_name, phone, avatar_url, provider_user_id, two_factor_secret, status, email_verified, metadata, created_at, updated_at)
-SELECT 'admin@vendidit.com', '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', 'Super', 'Admin', 'Super Admin', '', '', '', '', 'active', true, '{}', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@vendidit.com');
-UPDATE users SET password_hash = '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', status = 'active', email_verified = true, metadata = COALESCE(metadata, '{}'), display_name = COALESCE(display_name, 'Super Admin'), phone = COALESCE(phone, ''), avatar_url = COALESCE(avatar_url, ''), provider_user_id = COALESCE(provider_user_id, ''), two_factor_secret = COALESCE(two_factor_secret, '') WHERE email = 'admin@vendidit.com';
+SELECT 'admin@ryanweiss.net', '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', 'Super', 'Admin', 'Super Admin', '', '', '', '', 'active', true, '{}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@ryanweiss.net');
+UPDATE users SET password_hash = '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', status = 'active', email_verified = true, metadata = COALESCE(metadata, '{}'), display_name = COALESCE(display_name, 'Super Admin'), phone = COALESCE(phone, ''), avatar_url = COALESCE(avatar_url, ''), provider_user_id = COALESCE(provider_user_id, ''), two_factor_secret = COALESCE(two_factor_secret, '') WHERE email = 'admin@ryanweiss.net';
 
 INSERT INTO users (email, password_hash, first_name, last_name, display_name, phone, avatar_url, provider_user_id, two_factor_secret, status, email_verified, metadata, created_at, updated_at)
-SELECT 'seller@vendidit.com', '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', 'Demo', 'Seller', 'Demo Seller', '', '', '', '', 'active', true, '{}', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'seller@vendidit.com');
+SELECT 'seller@ryanweiss.net', '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', 'Demo', 'Seller', 'Demo Seller', '', '', '', '', 'active', true, '{}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'seller@ryanweiss.net');
 
 INSERT INTO users (email, password_hash, first_name, last_name, display_name, phone, avatar_url, provider_user_id, two_factor_secret, status, email_verified, metadata, created_at, updated_at)
-SELECT 'buyer@vendidit.com', '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', 'Demo', 'Buyer', 'Demo Buyer', '', '', '', '', 'active', true, '{}', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'buyer@vendidit.com');
+SELECT 'buyer@ryanweiss.net', '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', 'Demo', 'Buyer', 'Demo Buyer', '', '', '', '', 'active', true, '{}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'buyer@ryanweiss.net');
 
 INSERT INTO users (email, password_hash, first_name, last_name, display_name, phone, avatar_url, provider_user_id, two_factor_secret, status, email_verified, metadata, created_at, updated_at)
-SELECT 'manager@vendidit.com', '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', 'Demo', 'Manager', 'Demo Manager', '', '', '', '', 'active', true, '{}', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'manager@vendidit.com');
+SELECT 'manager@ryanweiss.net', '$2a$12$M/VOLH6UKOYWsPgRqNlQyeSVfawoif81sIb57ANfianeb9j9jr9Vq', 'Demo', 'Manager', 'Demo Manager', '', '', '', '', 'active', true, '{}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'manager@ryanweiss.net');
 
 -- Assign roles
-INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'admin@vendidit.com' AND r.name = 'Super Administrator' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
-INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'seller@vendidit.com' AND r.name = 'Seller' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
-INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'seller@vendidit.com' AND r.name = 'Organization Administrator' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
-INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'buyer@vendidit.com' AND r.name = 'Buyer' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
-INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'manager@vendidit.com' AND r.name = 'Organization Manager' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
+INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'admin@ryanweiss.net' AND r.name = 'Super Administrator' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
+INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'seller@ryanweiss.net' AND r.name = 'Seller' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
+INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'seller@ryanweiss.net' AND r.name = 'Organization Administrator' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
+INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'buyer@ryanweiss.net' AND r.name = 'Buyer' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);
+INSERT INTO user_base_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'manager@ryanweiss.net' AND r.name = 'Organization Manager' AND NOT EXISTS (SELECT 1 FROM user_base_roles WHERE user_id = u.id AND role_id = r.id);

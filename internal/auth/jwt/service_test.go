@@ -8,11 +8,11 @@ import (
 	"time"
 
 	gjwt "github.com/golang-jwt/jwt/v5"
-	"github.com/ven/auth/internal/cache"
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/internal/repository"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/cache"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/repository"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // stubTokenRepo records the rows the JWT service tries to write so tests can

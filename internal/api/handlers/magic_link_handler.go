@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	auth "github.com/ven/auth/internal/service/auth"
-	"github.com/ven/auth/pkg/shared/errors"
+	auth "github.com/rw3iss/auth/internal/service/auth"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // MagicLinkHandler exposes the magic-link sign-in endpoints. Public —

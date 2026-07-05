@@ -1,4 +1,4 @@
-// Package main is the entry point for the VEN Authentication Server
+// Package main is the entry point for the rw3iss Authentication Server
 package main
 
 import (
@@ -13,21 +13,21 @@ import (
 
 	"time"
 
-	"github.com/ven/auth/internal/api/middleware"
-	"github.com/ven/auth/internal/api/routes"
-	"github.com/ven/auth/internal/audit"
-	"github.com/ven/auth/internal/auth/jwt"
-	"github.com/ven/auth/internal/auth/sso"
-	"github.com/ven/auth/internal/background"
-	"github.com/ven/auth/internal/cache"
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/internal/email"
-	"github.com/ven/auth/internal/logging"
-	"github.com/ven/auth/internal/repository/postgres"
-	"github.com/ven/auth/internal/service"
-	auth "github.com/ven/auth/internal/service/auth"
-	"github.com/ven/auth/pkg/migration/cognito"
-	"github.com/ven/auth/pkg/migration/globalsku"
+	"github.com/rw3iss/auth/internal/api/middleware"
+	"github.com/rw3iss/auth/internal/api/routes"
+	"github.com/rw3iss/auth/internal/audit"
+	"github.com/rw3iss/auth/internal/auth/jwt"
+	"github.com/rw3iss/auth/internal/auth/sso"
+	"github.com/rw3iss/auth/internal/background"
+	"github.com/rw3iss/auth/internal/cache"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/internal/email"
+	"github.com/rw3iss/auth/internal/logging"
+	"github.com/rw3iss/auth/internal/repository/postgres"
+	"github.com/rw3iss/auth/internal/service"
+	auth "github.com/rw3iss/auth/internal/service/auth"
+	"github.com/rw3iss/auth/pkg/migration/cognito"
+	"github.com/rw3iss/auth/pkg/migration/globalsku"
 )
 
 func main() {

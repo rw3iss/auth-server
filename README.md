@@ -1,8 +1,8 @@
-# VEN Authentication Server
+# rw3iss Authentication Server
 
-📚 **Full documentation**: [docs.auth.vendidit.com](https://docs.auth.vendidit.com/auth-server/overview/)
+📚 **Full documentation**: [docs.auth.ryanweiss.net](https://docs.auth.ryanweiss.net/auth-server/overview/)
 
-A standalone, enterprise-level, multi-tenant authentication server written in Go for the VEN auction platform. This server handles user registration, authentication, organization management, role-based access control (RBAC), and SSO integration.
+A standalone, enterprise-level, multi-tenant authentication server written in Go for the rw3iss auction platform. This server handles user registration, authentication, organization management, role-based access control (RBAC), and SSO integration.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ A standalone, enterprise-level, multi-tenant authentication server written in Go
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              VEN Auth Server                                 │
+│                              rw3iss Auth Server                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
@@ -369,7 +369,7 @@ A standalone, enterprise-level, multi-tenant authentication server written in Go
 
 ```bash
 # Clone the repository
-git clone https://github.com/ven/auth.git
+git clone https://github.com/rw3iss/auth.git
 cd auth
 
 # Install dependencies
@@ -415,7 +415,7 @@ This starts three services:
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Auth Server | http://localhost:8080 | VEN Auth API |
+| Auth Server | http://localhost:8080 | rw3iss Auth API |
 | PostgreSQL | localhost:5433 | Database (user: postgres, password: postgres) |
 | Redis | localhost:6380 | Token cache and rate limiting |
 
@@ -541,7 +541,7 @@ CORS_ORIGINS=http://localhost:3001  # NEVER `*` in production
 SSO_GOOGLE_ENABLED=true
 SSO_GOOGLE_CLIENT_ID=
 SSO_GOOGLE_CLIENT_SECRET=
-SSO_ALLOWED_REDIRECT_URLS=https://app.vendidit.com/auth/callback,https://*.staging.vendidit.com/auth/callback*
+SSO_ALLOWED_REDIRECT_URLS=https://app.ryanweiss.net/auth/callback,https://*.staging.ryanweiss.net/auth/callback*
 
 # Audit log
 AUDIT_ENABLED=true
@@ -561,7 +561,7 @@ SMTP_PORT=587
 SMTP_USER=noreply@example.com
 SMTP_PASSWORD=password
 EMAIL_FROM_ADDRESS=noreply@example.com
-EMAIL_FROM_NAME=VEN Auth
+EMAIL_FROM_NAME=rw3iss Auth
 
 # Redis (optional - graceful fallback if unavailable)
 REDIS_HOST=localhost
@@ -777,7 +777,7 @@ auth/
 
 ### Production: ven-internal (current)
 
-Live at **`https://new-auth.vendidit.com/`** (health: `https://new-auth.vendidit.com/health`).
+Live at **`https://auth.ryanweiss.net/`** (health: `https://auth.ryanweiss.net/health`).
 
 Runs as a native Go binary under systemd on the ven-internal EC2 box (3.12.0.133). Nginx (Docker, `ven-nginx` on `/opt/ven-cms/`) terminates SSL on 443 and reverse-proxies to `127.0.0.1:8090`. The auth-server shares the box's `ven-postgres` container (DB `auth`) and `ven-redis` container (DB index 1).
 
@@ -787,10 +787,10 @@ Runs as a native Go binary under systemd on the ven-internal EC2 box (3.12.0.133
 | Binary                             | `/home/ec2-user/apps/auth-server/auth-server`         |
 | Env file (chmod 600)               | `/home/ec2-user/apps/auth-server/.env`                |
 | Migrations                         | `/home/ec2-user/apps/auth-server/migrations/`         |
-| Nginx vhost                        | `/opt/ven-cms/nginx/conf.d/new-auth.vendidit.com.conf` (see `deploy/nginx/`) |
-| SSL cert                           | `/etc/letsencrypt/live/new-auth.vendidit.com/` (auto-renewing) |
+| Nginx vhost                        | `/opt/ven-cms/nginx/conf.d/auth.ryanweiss.net.conf` (see `deploy/nginx/`) |
+| SSL cert                           | `/etc/letsencrypt/live/auth.ryanweiss.net/` (auto-renewing) |
 
-**Deploy flow:** push to `production` branch on `Vendidit/auth-server`. GitHub Actions (`.github/workflows/deploy.yml`) runs `go build ./...` + `go test ./internal/...`, then on success scps the Linux binary + migrations and `sudo systemctl restart auth-server`. A 5-attempt `/health` probe gates success.
+**Deploy flow:** push to `production` branch on `rw3iss/auth-server`. GitHub Actions (`.github/workflows/deploy.yml`) runs `go build ./...` + `go test ./internal/...`, then on success scps the Linux binary + migrations and `sudo systemctl restart auth-server`. A 5-attempt `/health` probe gates success.
 
 Devs merge to `main`, then fast-forward `production` → `main` when ready:
 
@@ -810,7 +810,7 @@ make install-hooks
 sudo systemctl status auth-server         # status
 sudo journalctl -u auth-server -f         # live logs
 sudo systemctl restart auth-server        # manual restart (also done by CI)
-curl https://new-auth.vendidit.com/health # public probe
+curl https://auth.ryanweiss.net/health # public probe
 ```
 
 The systemd unit is `Restart=always`, `RestartSec=5`, `StartLimitIntervalSec=0` — it retries forever on crash. Logs land in journald.
@@ -849,4 +849,4 @@ All routes can be mounted under a configurable prefix via the `API_PREFIX` env v
 
 ## License
 
-Copyright (c) 2024 VEN Platform. All rights reserved.
+Copyright (c) 2024 rw3iss Platform. All rights reserved.

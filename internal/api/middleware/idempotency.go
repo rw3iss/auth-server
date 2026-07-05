@@ -12,7 +12,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/ven/auth/internal/cache"
+	"github.com/rw3iss/auth/internal/cache"
 )
 
 // Idempotency-Key middleware. AUDIT 9.4: mobile clients on bad networks

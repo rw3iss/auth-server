@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ven/auth/internal/auth/jwt"
-	"github.com/ven/auth/internal/logging"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/auth/jwt"
+	"github.com/rw3iss/auth/internal/logging"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // contextKey is a type for context keys

@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ven/auth/internal/service"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/service"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // AuditHandler exposes the audit-log read endpoint. Gated to admins

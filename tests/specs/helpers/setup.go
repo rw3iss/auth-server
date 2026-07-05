@@ -13,15 +13,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ven/auth/internal/api/routes"
-	"github.com/ven/auth/internal/auth/jwt"
-	"github.com/ven/auth/internal/auth/sso"
-	"github.com/ven/auth/internal/cache"
-	"github.com/ven/auth/internal/config"
-	"github.com/ven/auth/internal/email"
-	"github.com/ven/auth/internal/repository/postgres"
-	"github.com/ven/auth/internal/service"
-	auth "github.com/ven/auth/internal/service/auth"
+	"github.com/rw3iss/auth/internal/api/routes"
+	"github.com/rw3iss/auth/internal/auth/jwt"
+	"github.com/rw3iss/auth/internal/auth/sso"
+	"github.com/rw3iss/auth/internal/cache"
+	"github.com/rw3iss/auth/internal/config"
+	"github.com/rw3iss/auth/internal/email"
+	"github.com/rw3iss/auth/internal/repository/postgres"
+	"github.com/rw3iss/auth/internal/service"
+	auth "github.com/rw3iss/auth/internal/service/auth"
 )
 
 // loadEnvFile loads KEY=VALUE pairs from a file into the process environment.

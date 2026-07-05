@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ven/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/domain"
 )
 
 // RegistrationEvent is the JSON envelope POSTed to app webhooks for
@@ -121,7 +121,7 @@ func deliver(hook domain.AppWebhook, event RegistrationEvent, rawBody []byte) {
 			return
 		}
 		req.Header.Set("Content-Type", contentType)
-		req.Header.Set("X-Vendidit-Event", event.Event)
+		req.Header.Set("X-rw3iss-Event", event.Event)
 		resp, err := httpClient.Do(req)
 		cancel()
 		if err != nil {

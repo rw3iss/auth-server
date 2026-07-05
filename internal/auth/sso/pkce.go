@@ -33,7 +33,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 
-	"github.com/ven/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 )
 
 // Code challenge method constants. RFC 7636 §4.3 names two methods: "plain"

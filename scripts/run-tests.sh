@@ -6,7 +6,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-echo "=== VEN Auth Server - Integration Tests ==="
+echo "=== rw3iss Auth Server - Integration Tests ==="
 
 # Start test dependencies
 echo "Starting test dependencies..."

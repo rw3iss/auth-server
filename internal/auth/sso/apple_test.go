@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/ven/auth/internal/config"
+	"github.com/rw3iss/auth/internal/config"
 )
 
 // genTestP8 returns a fresh ES256 (P-256) private key as PKCS#8 PEM text.
@@ -32,7 +32,7 @@ func newTestAppleProvider(t *testing.T, pem string) *AppleProvider {
 	t.Helper()
 	p, err := NewAppleProvider(config.OAuthProviderConfig{
 		Enabled:  true,
-		ClientID: "com.vendidit.svc",
+		ClientID: "com.rw3iss.svc",
 		Scopes:   []string{"name", "email"},
 	}, "TEAMID1234", "KEYID56789", pem)
 	if err != nil {
@@ -82,8 +82,8 @@ func TestGenerateClientSecret(t *testing.T) {
 	if claims["iss"] != "TEAMID1234" {
 		t.Errorf("iss = %v, want TEAMID1234", claims["iss"])
 	}
-	if claims["sub"] != "com.vendidit.svc" {
-		t.Errorf("sub = %v, want com.vendidit.svc", claims["sub"])
+	if claims["sub"] != "com.rw3iss.svc" {
+		t.Errorf("sub = %v, want com.rw3iss.svc", claims["sub"])
 	}
 	if claims["aud"] != appleIssuer {
 		t.Errorf("aud = %v, want %s", claims["aud"], appleIssuer)
@@ -124,7 +124,7 @@ func TestValidateIDToken_RejectsForgedToken(t *testing.T) {
 	// HS256 token (wrong family entirely) — must be rejected by WithValidMethods.
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"iss": appleIssuer,
-		"aud": "com.vendidit.svc",
+		"aud": "com.rw3iss.svc",
 		"sub": "001234.abcd",
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})

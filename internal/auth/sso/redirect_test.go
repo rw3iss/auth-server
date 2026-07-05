@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ven/auth/internal/config"
+	"github.com/rw3iss/auth/internal/config"
 )
 
 // AUDIT 1.13: redirect URLs must be validated against the allowlist before

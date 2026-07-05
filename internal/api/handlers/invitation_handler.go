@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ven/auth/internal/api/middleware"
-	"github.com/ven/auth/internal/service"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/api/middleware"
+	"github.com/rw3iss/auth/internal/service"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // InvitationHandler exposes the invitation surface that the

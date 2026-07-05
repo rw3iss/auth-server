@@ -1,4 +1,4 @@
-# Development — Vendidit Auth Server
+# Development — rw3iss Auth Server
 
 Deeper development reference for `new/auth`. For the high-level architecture see [`How_It_Works.md`](./How_It_Works.md) and the canonical reference [`../README.md`](../README.md).
 
@@ -39,7 +39,7 @@ Create a test user:
 curl -X POST http://localhost:8080/api/v1/auth/register \
     -H "Content-Type: application/json" \
     -d '{
-        "email": "test@vendidit.com",
+        "email": "test@ryanweiss.net",
         "password": "TestPass123",
         "first_name": "Test",
         "last_name": "User"
@@ -223,8 +223,8 @@ AUTH_DEFAULT_APP_CODE=
 
 # Email provider
 EMAIL_PROVIDER=smtp           # 'smtp' | 'sendgrid' | 'mailgun' | 'ses' | 'noop'
-EMAIL_FROM_ADDRESS=noreply@vendidit.com
-EMAIL_FROM_NAME=Vendidit
+EMAIL_FROM_ADDRESS=noreply@ryanweiss.net
+EMAIL_FROM_NAME=rw3iss
 EMAIL_TEMPLATES_PATH=./templates/email
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
@@ -271,7 +271,7 @@ COGNITO_CLIENT_ID=
 COGNITO_CLIENT_SECRET=
 
 # CORS — refuse `*` in production
-CORS_ORIGINS=http://localhost:3001,https://next.vendidit.com
+CORS_ORIGINS=http://localhost:3001,https://next.ryanweiss.net
 
 # Logging
 LOG_LEVEL=debug                # debug | info | warn | error

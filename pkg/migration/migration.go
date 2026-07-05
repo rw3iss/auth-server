@@ -6,7 +6,7 @@
 //
 //   - The auth-server's core has no business knowing about AWS Cognito,
 //     Auth0, or any other legacy identity store. Those are implementation
-//     details of *one specific deployment* (Vendidit's migration off
+//     details of *one specific deployment* (rw3iss's migration off
 //     Cognito). Other consumers of this codebase should be able to ignore
 //     the whole tree.
 //   - SOLID-shaped: the auth-server depends on the LegacyAuthProvider
@@ -118,7 +118,7 @@ type RoleMapper interface {
 	Map(legacyRoles []string) []string
 }
 
-// DefaultRoleMapper is the built-in mapping table. Covers the Vendidit
+// DefaultRoleMapper is the built-in mapping table. Covers the rw3iss
 // Cognito groups; extend or replace for other deployments.
 //
 // Mappings (case-insensitive):
@@ -140,7 +140,7 @@ type RoleMapper interface {
 // Note: super_admin auto-mapping is intentional. The role is granular —
 // cross-org data management only — and migration from Cognito SUPER_ADMIN
 // to internal super_admin preserves operational continuity for existing
-// Vendidit ops staff. The platform-owner role (system_admin) is
+// rw3iss ops staff. The platform-owner role (system_admin) is
 // deliberately distinct and never inherited from a legacy system.
 type DefaultRoleMapper struct{}
 

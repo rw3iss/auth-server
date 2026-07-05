@@ -1,7 +1,7 @@
 -- ─────────────────────────────────────────────────────────────────────────
 -- 007: App scoping
 --
--- A user-facing app is a consumer of Vendidit auth: a frontend, a backend
+-- A user-facing app is a consumer of rw3iss auth: a frontend, a backend
 -- API, or any client that initiates logins or holds access tokens. Apps
 -- declare which permission *services* their tokens should carry; the
 -- JWT-issuance path computes the permission union from those services'

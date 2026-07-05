@@ -39,8 +39,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ven/auth/pkg/migration"
-	"github.com/ven/auth/pkg/migration/cognito"
+	"github.com/rw3iss/auth/pkg/migration"
+	"github.com/rw3iss/auth/pkg/migration/cognito"
 )
 
 // loadCognitoEnv loads tests/.env.test.cognito into the process env if it

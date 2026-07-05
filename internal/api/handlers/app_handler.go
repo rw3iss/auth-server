@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ven/auth/internal/api/middleware"
-	"github.com/ven/auth/internal/domain"
-	"github.com/ven/auth/internal/service"
-	"github.com/ven/auth/pkg/shared/errors"
-	"github.com/ven/auth/pkg/shared/types"
+	"github.com/rw3iss/auth/internal/api/middleware"
+	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/internal/service"
+	"github.com/rw3iss/auth/pkg/shared/errors"
+	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
 // AppHandler exposes app-registration admin endpoints and the user-facing
@@ -264,7 +264,7 @@ func (h *AppHandler) RevokeUser(w http.ResponseWriter, r *http.Request) {
 
 // RegistrationPolicyResponse is the public, anonymous-readable subset of
 // an app's registration policy. Clients use it to pre-filter SSO
-// buttons + show a "must be a @vendidit.com email" hint BEFORE the user
+// buttons + show a "must be a @ryanweiss.net email" hint BEFORE the user
 // submits. The server re-enforces on register — the client signal is UX
 // only, never security.
 type RegistrationPolicyResponse struct {
