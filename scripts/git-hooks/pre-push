@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# pre-push hook — block broken pushes
+#
+# Runs `go build ./...` and `go test ./internal/... -count=1`.
+# Fails the push (non-zero exit) if either gate fails.
+#
+# Install (per-clone — Git doesn't track hooks itself):
+#   make install-hooks
+set -euo pipefail
+
+# Skip on delete (pushing :branch). The local-only `oldsha newsha refname zerosha`
+# pattern with zero newsha means a delete — nothing to test.
+ZERO="0000000000000000000000000000000000000000"
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "$ZERO" ]; then
+    continue
+  fi
+  HAS_REAL_PUSH=1
+done
+
+if [ -z "${HAS_REAL_PUSH:-}" ]; then
+  exit 0
+fi
+
+echo "==> pre-push: go build ./..."
+go build ./...
+
+echo "==> pre-push: go test ./internal/... -count=1"
+go test ./internal/... -count=1
+
+echo "==> pre-push: OK"

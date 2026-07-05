@@ -1,0 +1,32 @@
+# Build artifacts
+bin/
+/seed
+*.exe
+*.test
+*.out
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test secrets (Cognito migration integration tests, etc.)
+# Keep the .example template committed; never commit the real file.
+tests/.env.test.cognito
+tests/.env.test.*.local
+
+# OS
+.DS_Store
+*.swp
+*.swo
+
+# Editor
+.idea/
+.vscode/
+
+# Dependencies
+vendor/
+
+# Coverage
+coverage.out
+coverage.html

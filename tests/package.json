@@ -1,0 +1,11 @@
+{
+    "name": "ven-auth-tests",
+    "private": true,
+    "version": "1.0.0",
+    "dependencies": {
+        "@vendidit/test-tools": "github:Vendidit/tools#path:packages/test-tools"
+    },
+    "pnpm": {
+        "onlyBuiltDependencies": ["@vendidit/test-tools"]
+    }
+}

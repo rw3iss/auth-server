@@ -1,0 +1,87 @@
+name: Deploy Auth Server
+
+on:
+  push:
+    branches: [production]
+
+# Concurrency: never run two production deploys at once. The most-recent push wins;
+# in-flight deploys are cancelled to avoid two binaries fighting over the systemd slot.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # Gate 1 — repeat the local pre-push checks in CI so a forced/no-verify push
+  # still can't reach the deploy step with broken code.
+  build-test:
+    name: Build + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: go build ./...
+        run: go build ./...
+
+      - name: go test ./internal/... -count=1
+        run: go test ./internal/... -count=1
+
+  # Gate 2 — only runs if build-test is green. SCPs the Linux binary + migrations
+  # to ven-internal and restarts the systemd unit. Health check fails the job
+  # if the new binary doesn't respond on :8090 within ~5s.
+  deploy:
+    name: Deploy to ven-internal
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Build Linux binary
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/auth-server ./cmd/server/main.go
+
+      - name: Copy binary + migrations to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ec2-user
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "bin/auth-server,migrations/"
+          target: "/home/ec2-user/apps/auth-server/"
+          strip_components: 0
+          overwrite: true
+
+      - name: Install + restart + health-check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ec2-user
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/apps/auth-server
+            # scp-action lands the binary at ~/apps/auth-server/bin/auth-server;
+            # swap it into place atomically and clean up the staging dir.
+            install -m 0755 bin/auth-server auth-server
+            rm -f bin/auth-server
+            sudo systemctl restart auth-server
+            # Wait up to ~5s for the new process to come up. systemd's
+            # Restart=always covers crashes; this loop covers slow-starts.
+            for i in 1 2 3 4 5; do
+              if curl -sf http://localhost:8090/health >/dev/null; then
+                echo "Health OK on attempt $i"
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "Health check failed after restart"
+            sudo journalctl -u auth-server -n 50 --no-pager
+            exit 1

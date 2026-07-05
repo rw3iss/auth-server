@@ -1,0 +1,11 @@
+{
+    "language": "go",
+    "projectName": "Vendidit Auth",
+    "testsDir": "specs",
+    "runnerArgs": ["-tags", "integration", "-timeout", "120s"],
+    "excludeDirs": ["vendor", "testdata"],
+    "environments": [
+        { "key": "test", "label": "Test", "envFile": ".env.test" },
+        { "key": "dev", "label": "Dev", "envFile": ".env" }
+    ]
+}

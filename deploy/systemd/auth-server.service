@@ -1,0 +1,51 @@
+# /etc/systemd/system/auth-server.service
+#
+# Vendidit auth-server systemd unit. Drop into /etc/systemd/system on
+# ven-internal, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now auth-server
+#
+# Logs:    sudo journalctl -u auth-server -f
+# Status:  sudo systemctl status auth-server
+# Restart: sudo systemctl restart auth-server
+#
+# Listens on :8090 (loopback) — nginx terminates SSL and reverse-proxies
+# from https://new-auth.vendidit.com/.
+
+[Unit]
+Description=Vendidit Auth Server
+# We don't strictly require docker — postgres+redis happen to live in
+# docker today, but the auth-server only needs network reachability to
+# their host-bound ports. Wait for the network to come up; if docker is
+# also coming up the service will retry under Restart=always.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/apps/auth-server
+EnvironmentFile=/home/ec2-user/apps/auth-server/.env
+ExecStart=/home/ec2-user/apps/auth-server/auth-server
+
+# Always restart, with a brief backoff. The default StartLimit (5 starts
+# in 10s -> stop trying) is a foot-gun for a service that should never
+# give up — disable the start-limit gate entirely so the unit re-tries
+# forever after a crash.
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+
+# Logs go to journald; aggregate with `journalctl -u auth-server`.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=auth-server
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/ec2-user/apps/auth-server
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

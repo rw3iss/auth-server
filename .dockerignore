@@ -1,0 +1,13 @@
+.git
+.env
+.env.local
+bin/
+tmp/
+*.test
+*.out
+coverage/
+vendor/
+.idea/
+.vscode/
+*.swp
+*.swo

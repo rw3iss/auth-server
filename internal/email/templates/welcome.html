@@ -1,0 +1,22 @@
+{{/*
+  Inputs:
+    .FirstName — may be empty
+    .DashboardURL — optional CTA destination (e.g. https://auth-demo.vendidit.com)
+*/}}
+<h1 style="margin:0 0 16px;font-size:24px;font-weight:600;color:#1a1f2e;letter-spacing:-0.01em;">Welcome to {{.BrandName}}</h1>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#4d5567;">
+  {{if .FirstName}}Hi {{.FirstName}},{{else}}Hi,{{end}}
+</p>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4d5567;">
+  Your account is ready. We're glad to have you on board.
+</p>
+{{if .DashboardURL}}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+  <tr><td style="border-radius:8px;background:{{.BrandColor}};">
+    <a href="{{.DashboardURL}}" style="display:inline-block;padding:12px 24px;color:#ffffff;text-decoration:none;font-weight:500;font-size:15px;border-radius:8px;">Open dashboard</a>
+  </td></tr>
+</table>
+{{end}}
+<p style="margin:0;font-size:13px;color:#7a8195;">
+  If you have questions, reply to this email — we read every one.
+</p>
