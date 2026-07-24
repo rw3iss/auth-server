@@ -283,7 +283,9 @@ migrations/              Raw SQL, applied in filename order. Current set:
                          login-match set AND the tag set for new users;
                          lookups match home OR tag.
                          019 apps.webhooks, 020 apps.default_role_code +
-                         apps.linked_app_codes (§7 auto-provisioning).
+                         apps.linked_app_codes (§7 auto-provisioning),
+                         021 demo system_admin (ryan@ryanweiss.net) +
+                         auth-client-demo app membership.
 
 scripts/
 ├── entrypoint.sh        Docker startup: wait-for-DB, migrate, launch.
