@@ -354,8 +354,6 @@ Seeded roles (migrations `002_seed_data.up.sql` + `008_org_perms_and_super_admin
 | `super_admin` | 5 | platform | Cross-org data administration (users, orgs, members, jobs). Cannot register apps or services. |
 | `org_admin` | 10 | org | Full admin within one organization. |
 | `org_manager` | 20 | org | Manages users + their roles in the org. |
-| `seller` | 50 | org | Marketplace seller. |
-| `buyer` | 60 | org | Marketplace buyer. |
 | `org_member` | 80 | org | Fallback role on `AddMember` when no specific role specified — read-only org access. |
 | `base_user` | 100 | platform | Default for any registered user without org context. |
 

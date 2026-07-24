@@ -418,7 +418,7 @@ func (s *OrganizationService) RemoveMemberRole(ctx context.Context, userID, orgI
 // — e.g. swapping the org_admin from one member to another.
 //
 // Every code must resolve to an org-scoped role (seeded `is_org_role`
-// roles like org_admin/org_manager/seller/buyer/org_member, or a
+// roles like org_admin/org_manager/org_member, or a
 // custom role belonging to this org). Base/platform roles are
 // rejected — those are managed via PUT /admin/users/{id}/roles.
 //

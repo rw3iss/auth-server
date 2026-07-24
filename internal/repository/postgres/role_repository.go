@@ -284,7 +284,7 @@ func (r *RoleRepository) GetPermissionsForRoles(ctx context.Context, roleIDs []t
 	}
 	// pq's array binding lets us pass the slice directly. DISTINCT on the
 	// permission row avoids duplicates when multiple roles share a perm
-	// (e.g. org_admin + seller both granting bids:create).
+	// (e.g. org_admin + org_manager both granting the same perm).
 	query := `
 		SELECT DISTINCT p.id, p.code, p.name, p.description, p.resource, p.action, p.category,
 			p.metadata, p.created_at, p.updated_at

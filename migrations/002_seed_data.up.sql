@@ -97,14 +97,6 @@ INSERT INTO roles (id, code, name, description, type, level, is_org_role) VALUES
 INSERT INTO roles (id, code, name, description, type, level, is_org_role) VALUES
     (uuid_generate_v4(), 'org_manager', 'Organization Manager', 'Can manage users and their roles within the organization', 'system', 20, true);
 
--- Seller
-INSERT INTO roles (id, code, name, description, type, level, is_org_role) VALUES
-    (uuid_generate_v4(), 'seller', 'Seller', 'Can create and manage auctions and items', 'system', 50, true);
-
--- Buyer
-INSERT INTO roles (id, code, name, description, type, level, is_org_role) VALUES
-    (uuid_generate_v4(), 'buyer', 'Buyer', 'Can view auctions and place bids', 'system', 60, true);
-
 -- Assign all permissions to system_admin
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
@@ -144,28 +136,6 @@ AND p.code IN (
     'items:read', 'items:list',
     'invitations:create', 'invitations:read', 'invitations:delete', 'invitations:list',
     'reports:read', 'reports:list'
-);
-
--- Assign permissions to seller
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r, permissions p
-WHERE r.code = 'seller'
-AND p.code IN (
-    'auctions:create', 'auctions:read', 'auctions:update', 'auctions:list',
-    'items:create', 'items:read', 'items:update', 'items:delete', 'items:list',
-    'bids:read', 'bids:list'
-);
-
--- Assign permissions to buyer
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r, permissions p
-WHERE r.code = 'buyer'
-AND p.code IN (
-    'auctions:read', 'auctions:list',
-    'items:read', 'items:list',
-    'bids:create', 'bids:read', 'bids:list'
 );
 
 -- Assign minimal permissions to base_user

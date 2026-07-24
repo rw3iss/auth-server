@@ -556,8 +556,7 @@ func (s *RoleService) ListOrgAssignablePermissions(ctx context.Context) ([]*doma
 func isReservedOrgRoleCode(code string) bool {
 	switch models.SystemRoleCode(code) {
 	case models.RoleSystemAdmin, models.RoleSuperAdmin, models.RoleBaseUser,
-		models.RoleOrgAdmin, models.RoleOrgManager, models.RoleOrgMember,
-		models.RoleSeller, models.RoleBuyer:
+		models.RoleOrgAdmin, models.RoleOrgManager, models.RoleOrgMember:
 		return true
 	}
 	return false

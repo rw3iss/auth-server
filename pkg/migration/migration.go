@@ -63,7 +63,7 @@ type LegacyUser struct {
 	Phone     string
 
 	// Roles are the legacy system's role identifiers — e.g. Cognito group
-	// names like "SELLER", "ADMIN", "CUSTOMER". The auth-server's RoleMapper
+	// names like "ADMIN", "MANAGER", "CUSTOMER". The auth-server's RoleMapper
 	// translates these to internal role codes; what the adapter ships is
 	// the raw legacy strings so the mapping policy lives in one place.
 	Roles []string
@@ -123,15 +123,11 @@ type RoleMapper interface {
 //
 // Mappings (case-insensitive):
 //
-//	SELLER                       → seller
-//	SELLERADMIN                  → seller, org_admin
 //	ADMIN                        → org_admin
 //	SUPER_ADMIN, SUPERADMIN      → super_admin  (cross-org, but not platform owner)
-//	CUSTOMER, BUYER              → customer
+//	CUSTOMER                     → customer
 //	LISTER                       → lister
 //	MANAGER                      → manager
-//	SELLERTESTER                 → sellertester
-//	BUYERTESTER                  → buyertester
 //	SYSTEM_ADMIN, SYSTEMADMIN    → (DROPPED — never auto-grant the platform-owner role)
 //
 // Anything not in the table is dropped silently; the user falls back to
@@ -159,25 +155,16 @@ func (DefaultRoleMapper) Map(legacyRoles []string) []string {
 	}
 	for _, raw := range legacyRoles {
 		switch normalizeLegacyRole(raw) {
-		case "seller":
-			add("seller")
-		case "selleradmin":
-			add("seller")
-			add("org_admin")
 		case "admin":
 			add("org_admin")
 		case "super_admin", "superadmin":
 			add("super_admin")
-		case "customer", "buyer":
+		case "customer":
 			add("customer")
 		case "lister":
 			add("lister")
 		case "manager":
 			add("manager")
-		case "sellertester":
-			add("sellertester")
-		case "buyertester":
-			add("buyertester")
 		case "system_admin", "systemadmin":
 			// Deliberately dropped — system_admin is the platform-owner
 			// role and is never granted via migration. An attacker who

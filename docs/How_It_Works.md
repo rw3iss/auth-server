@@ -13,7 +13,7 @@ Issue JWTs, validate JWTs, store the users + organizations + roles + permissions
 That means **every design choice here is shaped by two pressures:**
 
 1. **Don't be a bottleneck.** Every API request downstream depends on being able to validate a token cheaply — so token validation has to be local (HMAC signature) or cache-backed (Redis blacklist lookup), not a database hit per request.
-2. **Carry enough claims in the token to answer the common questions inline.** Roles, permissions, org context, and user identity are all in the access token, so `new/api` can answer "is this user a seller in this org?" without asking `new/auth`.
+2. **Carry enough claims in the token to answer the common questions inline.** Roles, permissions, org context, and user identity are all in the access token, so `new/api` can answer "is this user an org_manager in this org?" without asking `new/auth`.
 
 ---
 
@@ -131,10 +131,10 @@ User (jane@acme.com)
   ├── base role: "base_user"  (global — what she is outside any org)
   │
   ├── membership in Org "Acme"
-  │     └── roles: ["org_admin", "seller"]
+  │     └── roles: ["org_admin", "org_manager"]
   │
   └── membership in Org "BuildCo"
-        └── roles: ["buyer"]
+        └── roles: ["org_member"]
 ```
 
 The access token is scoped to **at most one organization** at a time:
@@ -160,7 +160,7 @@ Because the read pools depend on the app, `Login` resolves the app *before* the 
 ### Org vs. base roles
 
 - **Base roles** (e.g. `system_admin`, `base_user`, `developer`) are attached to a user globally, via `user_base_roles`. They apply regardless of org context.
-- **Org roles** (e.g. `org_admin`, `org_manager`, `seller`, `buyer`) are attached to a user within a specific organization, via `organization_member_roles`.
+- **Org roles** (e.g. `org_admin`, `org_manager`, `org_member`) are attached to a user within a specific organization, via `organization_member_roles`.
 
 When issuing a token:
 
@@ -173,7 +173,7 @@ A system-admin belongs to every org implicitly — they can always switch contex
 
 Migration `002_seed_data.up.sql` populates:
 
-- **Roles:** `system_admin`, `org_admin`, `org_manager`, `seller`, `buyer`, `base_user`
+- **Roles:** `system_admin`, `org_admin`, `org_manager`, `org_member`, `base_user`
 - **Permissions:** namespaced as `resource:action` (e.g. `auctions:create`, `users:invite`, `bids:create`)
 - **Role-permission mapping:** static, hardcoded in the migration. System admin gets everything. Each lesser role gets a subset.
 
@@ -325,12 +325,10 @@ When `COGNITO_AUTO_MIGRATE_ENABLED=true` and a valid pool is configured:
 
 | Cognito group | Internal role(s) |
 |---|---|
-| `SELLER` | `seller` |
-| `SELLERADMIN` | `seller`, `org_admin` |
 | `ADMIN` | `org_admin` |
 | `SUPER_ADMIN` | `super_admin` (cross-org admin; **not** platform owner) |
-| `CUSTOMER`, `BUYER` | `customer` |
-| `LISTER`, `MANAGER`, `SELLERTESTER`, `BUYERTESTER` | direct match |
+| `CUSTOMER` | `customer` |
+| `LISTER`, `MANAGER` | direct match |
 | `SYSTEM_ADMIN` | **dropped** — never inherited from legacy |
 
 The `system_admin` role is the platform-owner gate. An attacker who managed to create a `SYSTEM_ADMIN` group in the legacy Cognito pool would otherwise gain platform control through migration; the mapper hard-refuses every variant. Unit-tested.

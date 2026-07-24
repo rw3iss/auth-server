@@ -1,6 +1,6 @@
 # rw3iss Authentication Server
 
-📚 **Full documentation**: [docs.auth.ryanweiss.net](https://docs.auth.ryanweiss.net/auth-server/overview/)
+📚 **Full documentation**: [auth-docs.rw3iss.com](https://auth-docs.rw3iss.com/auth-server/overview/)
 
 A standalone, enterprise-level, multi-tenant authentication server written in Go for the rw3iss auction platform. This server handles user registration, authentication, organization management, role-based access control (RBAC), and SSO integration.
 
@@ -106,7 +106,7 @@ A standalone, enterprise-level, multi-tenant authentication server written in Go
 - **Role hierarchy** (lower number = more privileged):
   - `system_admin` (0) — platform owner; bypasses every gate
   - `super_admin` (5) — cross-org data administrator; can't reach platform internals
-  - `org_admin` (10), `org_manager` (20), `seller` (50), `buyer` (60), `org_member` (80), `base_user` (100)
+  - `org_admin` (10), `org_manager` (20), `org_member` (80), `base_user` (100)
 - **Permission namespaces**: `admin-*` for platform routes (system_admin only); `org:*` for org self-service (org_admin & up); service-self-registered slices (`POST /admin/permissions/register`)
 - **Single-use reset/verify tokens** with purpose claim + audience separation
 - **Refresh-token family rotation** with reuse detection (RFC 6819)

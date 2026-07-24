@@ -5,7 +5,7 @@
 // auto-grant branch, and JIT migration so every path delivers the same
 // entitlement set.
 //
-// App-agnostic + config-driven: nothing here hardcodes globalsku/seller. A
+// App-agnostic + config-driven: nothing here hardcodes globalsku/org roles. A
 // client may override the role + linked apps per request, but the role is
 // always re-validated server-side as an org-scoped role — a client can never
 // escalate to a platform role.

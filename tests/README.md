@@ -33,8 +33,8 @@ The `.env.test.cognito` file is gitignored — never commit real credentials.
 | Test | Requires | Behavior |
 |---|---|---|
 | `TestCognitoAdapter_UnknownEmail` | pool + client | Email not in pool → `ErrLegacyUserNotFound` OR `ErrLegacyLoginFailed` (Cognito's `PreventUserExistenceErrors` setting collapses these). |
-| `TestCognitoAdapter_WrongPassword` | + `COGNITO_TEST_SELLER_EMAIL` | Existing user, wrong password → `ErrLegacyLoginFailed`. |
-| `TestCognitoAdapter_SuccessfulLogin_Seller` | + `COGNITO_TEST_PASSWORD` | Real login → adapter returns populated `LegacyUser` with email + name + groups. Skips when password not set. |
+| `TestCognitoAdapter_WrongPassword` | + `COGNITO_TEST_USER_EMAIL` | Existing user, wrong password → `ErrLegacyLoginFailed`. |
+| `TestCognitoAdapter_SuccessfulLogin_User` | + `COGNITO_TEST_PASSWORD` | Real login → adapter returns populated `LegacyUser` with email + name + groups. Skips when password not set. |
 | `TestCognitoAdapter_DefaultRoleMapper_AppliesToRoles` | nothing | Pure unit test of role mapping; runs even without Cognito creds. |
 
 **Cognito `PreventUserExistenceErrors`**: Cognito's app clients have a "Prevent user existence errors" setting (default `Enabled` for new pools). When enabled, Cognito returns `NotAuthorizedException` for both "user not found" and "wrong password" so attackers can't enumerate accounts. The adapter and tests accept both error shapes.

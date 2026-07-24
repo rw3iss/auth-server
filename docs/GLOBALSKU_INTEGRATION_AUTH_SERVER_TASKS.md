@@ -518,7 +518,7 @@ correct — `app_code` is sent in the login body. This is all auth-server work.
 Register/patch the `globalsku` app with `auto_grant_on_signup=true` (and the auth
 methods + pools from §0). First login then auto-grants the `user_apps` row
 (`auth_login.go:312 → appService.GrantUser`). This fixes the 403 for new and
-existing users. Does NOT, by itself, give org membership / Seller role / a second
+existing users. Does NOT, by itself, give org membership / org_manager role / a second
 app — that's §7.2.
 
 ### 7.1 Current behavior (verified) — the gaps
@@ -532,16 +532,16 @@ app — that's §7.2.
 | additional apps | **none** (no linked-apps concept) | none | none |
 
 So no single path delivers "app membership + `rw3iss-marketplace` org as
-**seller** + `rw3iss-marketplace` app". `seller` role code exists
+**org_manager** + `rw3iss-marketplace` app". `org_manager` role code exists
 (`pkg/shared/models/role.go`), `GetOrganizationBySlug` exists — building blocks
 are present; the config + wiring are net-new.
 
-### 7.2 Net-new work (app-agnostic — config-driven, no hardcoded globalsku/seller)
+### 7.2 Net-new work (app-agnostic — config-driven, no hardcoded globalsku/org_manager)
 
 1. **App config fields** (`domain.App` + apps migration + POST/PATCH `/admin/apps`
    DTO in `app_handler.go`):
    - `default_role_code *string` — role for the default-org membership
-     (replaces the hardcoded `org_member`; e.g. `"seller"`). Validate it's an
+     (replaces the hardcoded `org_member`; e.g. `"org_manager"`). Validate it's an
      org-scoped role; never `system_admin`.
    - `linked_app_codes []string` — additional app codes whose `user_apps`
      membership is also granted when this app provisions a user.
@@ -574,19 +574,19 @@ PATCH /api/v1/admin/apps/<globalsku_id>      // system_admin
   "registration_namespace": "default",
   "read_namespaces": ["default","globalsku"],
   "default_organization_id": "<rw3iss-marketplace org id>",
-  "default_role_code": "seller",                 // NEW (§7.2)
+  "default_role_code": "org_manager",            // NEW (§7.2)
   "linked_app_codes": ["rw3iss-marketplace"]   // NEW (§7.2)
 }
 ```
 
 Result: any user who logs in / registers / is JIT-migrated through `globalsku`
-becomes a member of the `globalsku` **and** `rw3iss-marketplace` apps, and a
-**seller** in the `rw3iss-marketplace` org — automatically, idempotently.
+becomes a member of the `globalsku` **and** `rw3iss-marketplace` apps, and an
+**org_manager** in the `rw3iss-marketplace` org — automatically, idempotently.
 
 ### 7.4 Acceptance
 
 - Existing auth-server user logs in via `globalsku` → no 403; gains `globalsku` +
-  `rw3iss-marketplace` app membership + seller org membership. Re-login = no-op.
+  `rw3iss-marketplace` app membership + org_manager org membership. Re-login = no-op.
 - Brand-new register via `globalsku` → same entitlements at registration time
   (not deferred to a second login).
 - JIT-migrated user (via the GlobalSKU `LegacyAuthProvider`, §5.1) → same set.

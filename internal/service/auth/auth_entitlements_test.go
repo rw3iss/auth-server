@@ -12,7 +12,7 @@ func TestIsPlatformRoleCode(t *testing.T) {
 			t.Errorf("%q should be refused as a platform role", c)
 		}
 	}
-	org := []string{"seller", "buyer", "org_admin", "org_manager", "org_member", "custom_role", ""}
+	org := []string{"org_admin", "org_manager", "org_member", "custom_role", ""}
 	for _, c := range org {
 		if isPlatformRoleCode(c) {
 			t.Errorf("%q should NOT be flagged as a platform role", c)

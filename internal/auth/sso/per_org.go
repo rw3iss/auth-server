@@ -15,8 +15,8 @@ package sso
 //
 // # Intended design
 //
-//   - White-label clients (the marketplace's seller-portal customers
-//     running on their own domains) can configure their own IdP at the
+//   - White-label clients (portal customers running on their own
+//     domains) can configure their own IdP at the
 //     org level — typically Okta, Azure AD, or a Google Workspace
 //     domain restriction.
 //   - org.sso_config holds the provider-specific JSON. Schema:

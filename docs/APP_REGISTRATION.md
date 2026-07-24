@@ -55,7 +55,7 @@ Content-Type: application/json
   "registration_namespace": "default",       // optional WRITE pool; default "default"
   "read_namespaces": ["default"],            // optional READ pools; default [write ns]
   "default_organization_id": "<org id>",     // optional; org new users are auto-added to
-  "default_role_code": "seller",             // optional (§7); org role for that membership; default org_member
+  "default_role_code": "org_manager",        // optional (§7); org role for that membership; default org_member
   "linked_app_codes": ["rw3iss-marketplace"], // optional (§7); extra apps to also grant
   "status": "active"
 }
@@ -129,7 +129,7 @@ with a warning during provisioning.
 
 **Per-request override.** A client may pass `role_code` and/or
 `linked_app_codes` in the **login or register body** to override the app's
-defaults for that request (e.g. registering a buyer vs. a seller through the
+defaults for that request (e.g. registering an org_member vs. an org_manager through the
 same app). The app config is the fallback. `role_code` is re-validated
 server-side as an org-scoped role, so a client can never escalate to a platform
 role. Example:
@@ -137,7 +137,7 @@ role. Example:
 ```jsonc
 POST /auth/login
 { "email": "...", "password": "...", "app_code": "globalsku",
-  "role_code": "buyer", "linked_app_codes": ["rw3iss-marketplace"] }
+  "role_code": "org_manager", "linked_app_codes": ["rw3iss-marketplace"] }
 ```
 
 ### Webhooks (migration 019)
@@ -252,7 +252,7 @@ The SDK validates the bearer token locally and asserts `claims.app_id` matches t
 
 ### Frontend SPA (Preact / React)
 
-The browser SDK ([`@rw3iss/auth-client`](https://github.com/rw3iss/auth-client)) is the canonical way to integrate. It handles `app_code` on every login, refresh-token rotation, BroadcastChannel cross-tab sync, and PKCE for SSO. See [docs.auth.ryanweiss.net/auth-client/](https://docs.auth.ryanweiss.net/auth-client/overview/) for the full surface.
+The browser SDK ([`@rw3iss/auth-client`](https://github.com/rw3iss/auth-client)) is the canonical way to integrate. It handles `app_code` on every login, refresh-token rotation, BroadcastChannel cross-tab sync, and PKCE for SSO. See [auth-docs.rw3iss.com/auth-client/](https://auth-docs.rw3iss.com/auth-client/overview/) for the full surface.
 
 Minimal example:
 

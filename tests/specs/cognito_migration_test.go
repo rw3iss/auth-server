@@ -141,9 +141,9 @@ func TestCognitoAdapter_UnknownEmail(t *testing.T) {
 // the line internally for audit visibility.
 func TestCognitoAdapter_WrongPassword(t *testing.T) {
 	cfg := cognitoTestConfig(t)
-	email := os.Getenv("COGNITO_TEST_SELLER_EMAIL")
+	email := os.Getenv("COGNITO_TEST_USER_EMAIL")
 	if email == "" {
-		t.Skip("COGNITO_TEST_SELLER_EMAIL not set")
+		t.Skip("COGNITO_TEST_USER_EMAIL not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -158,18 +158,18 @@ func TestCognitoAdapter_WrongPassword(t *testing.T) {
 	}
 }
 
-// TestCognitoAdapter_SuccessfulLogin: when the demo seller user logs in
+// TestCognitoAdapter_SuccessfulLogin: when the demo user logs in
 // with the correct password, the adapter returns a LegacyUser populated
 // with email + name + roles. This test only runs when
 // COGNITO_TEST_PASSWORD is set — without a real password we can't verify
 // the success path, so we skip rather than fail. Set the password in
 // tests/.env.test.cognito when you're running this locally.
-func TestCognitoAdapter_SuccessfulLogin_Seller(t *testing.T) {
+func TestCognitoAdapter_SuccessfulLogin_User(t *testing.T) {
 	cfg := cognitoTestConfig(t)
 	password := os.Getenv("COGNITO_TEST_PASSWORD")
-	email := os.Getenv("COGNITO_TEST_SELLER_EMAIL")
+	email := os.Getenv("COGNITO_TEST_USER_EMAIL")
 	if password == "" || email == "" {
-		t.Skip("COGNITO_TEST_PASSWORD or COGNITO_TEST_SELLER_EMAIL not set")
+		t.Skip("COGNITO_TEST_PASSWORD or COGNITO_TEST_USER_EMAIL not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -188,19 +188,9 @@ func TestCognitoAdapter_SuccessfulLogin_Seller(t *testing.T) {
 	if !strings.EqualFold(user.Email, email) {
 		t.Fatalf("email mismatch: got %q want %q", user.Email, email)
 	}
-	// The demo seller account should carry a SELLER group at minimum.
-	// Use a soft assertion — we don't want this to fail if the seed
-	// drifts; we just log it.
-	hasSeller := false
-	for _, r := range user.Roles {
-		if strings.EqualFold(r, "seller") || strings.EqualFold(r, "SELLER") {
-			hasSeller = true
-			break
-		}
-	}
-	if !hasSeller {
-		t.Logf("warning: seller demo account has no SELLER group; got %v", user.Roles)
-	}
+	// Soft assertion — we don't want this to fail if the seed drifts;
+	// we just log the legacy groups that came through.
+	t.Logf("demo account legacy roles: %v", user.Roles)
 }
 
 // TestCognitoAdapter_DefaultRoleMapper_AppliesToRoles: end-to-end check
@@ -209,12 +199,12 @@ func TestCognitoAdapter_SuccessfulLogin_Seller(t *testing.T) {
 // fabricated LegacyUser.
 func TestCognitoAdapter_DefaultRoleMapper_AppliesToRoles(t *testing.T) {
 	mapper := migration.DefaultRoleMapper{}
-	got := mapper.Map([]string{"SELLER", "SUPER_ADMIN", "SELLERADMIN"})
+	got := mapper.Map([]string{"ADMIN", "SUPER_ADMIN", "MANAGER"})
 
 	expectedAny := map[string]bool{
-		"seller":      true,
+		"org_admin":   true, // ADMIN → org_admin
 		"super_admin": true,
-		"org_admin":   true, // SELLERADMIN expands to seller + org_admin
+		"manager":     true, // MANAGER → manager
 	}
 	for _, code := range got {
 		delete(expectedAny, code)

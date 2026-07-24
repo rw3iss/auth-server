@@ -25,8 +25,6 @@ const (
 	RoleOrgAdmin   SystemRoleCode = "org_admin"
 	RoleOrgManager SystemRoleCode = "org_manager"
 	RoleOrgMember  SystemRoleCode = "org_member" // fallback role on AddMember when no specific role specified
-	RoleSeller     SystemRoleCode = "seller"
-	RoleBuyer      SystemRoleCode = "buyer"
 )
 
 // BaseRole represents a role that can be assigned to users

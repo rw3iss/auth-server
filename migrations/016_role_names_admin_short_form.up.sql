@@ -12,7 +12,7 @@
 --   super_admin  → "Super Admin"
 --   org_admin    → "Organization Admin"
 --
--- Other seeded roles (Org Manager, Org Member, Seller, Buyer, Base User)
+-- Other seeded roles (Org Manager, Org Member, Base User)
 -- are already short-form and not touched.
 --
 -- Idempotent: only updates rows where the old long form is still in

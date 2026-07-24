@@ -292,7 +292,7 @@ Migrations live in `migrations/*.up.sql` + `migrations/*.down.sql`, numbered + n
 ```
 migrations/
 ├── 001_initial_schema                            schema (users, orgs, roles, perms, tokens, sessions, ...)
-├── 002_seed_data                                 system_admin / org_admin / seller / buyer / base_user + perm catalog
+├── 002_seed_data                                 system_admin / org_admin / org_member / base_user + perm catalog
 ├── 003_demo_users                                seeded demo accounts
 ├── 004_demo_organizations                        seeded demo orgs
 ├── 005_service_scoped_permissions_and_sysadmin_rename

@@ -22,8 +22,7 @@
 --     5   super_admin      Cross-org admin — explicit permissions
 --    10   org_admin        Single-org admin
 --    20   org_manager
---    50   seller
---    60   buyer
+--    80   org_member
 --   100   base_user
 -- ─────────────────────────────────────────────────────────────────────────
 
@@ -69,8 +68,8 @@ WHERE r.code = 'org_admin'
   AND p.code IN ('org:read', 'org:update', 'org:members:read', 'org:members:invite', 'org:members:remove', 'org:members:update');
 
 -- org_member gets minimal read access — the user can see they're in the
--- org and view the member list, nothing else. Specific roles (seller,
--- buyer, manager) layer on top.
+-- org and view the member list, nothing else. More privileged roles
+-- (org_manager, org_admin) layer on top.
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r, permissions p

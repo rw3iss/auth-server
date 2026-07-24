@@ -41,16 +41,12 @@ func TestDefaultRoleMapperKnownRoles(t *testing.T) {
 		legacy []string
 		want   []string
 	}{
-		{[]string{"SELLER"}, []string{"seller"}},
-		{[]string{"selleradmin"}, []string{"seller", "org_admin"}},
+		{[]string{"ADMIN"}, []string{"org_admin"}},
 		{[]string{"CUSTOMER"}, []string{"customer"}},
-		{[]string{"BUYER"}, []string{"customer"}}, // alias
 		{[]string{"LISTER", "MANAGER"}, []string{"lister", "manager"}},
 		{[]string{"unknown_role"}, []string{}},
 		// De-dup: same role twice with different casing → single output
-		{[]string{"SELLER", "Seller", "seller"}, []string{"seller"}},
-		// Combined: seller + selleradmin → seller appears once
-		{[]string{"selleradmin", "seller"}, []string{"seller", "org_admin"}},
+		{[]string{"ADMIN", "Admin", "admin"}, []string{"org_admin"}},
 	}
 	for _, tc := range cases {
 		got := m.Map(tc.legacy)
