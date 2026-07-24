@@ -9,12 +9,11 @@ Their will be a basic set of roles, which can be assigned to organizations, or n
 - Super Administrators (these are internal users that only our company will use).
 - Administrators (these are part of an organization, and can create and edit roles, and manage the role assignments to users, and the users themselves, among all other permissions below it).
 - Managers (these can manage anything about the users and role assignments for them, but they cannot edit or remove roles themselves).
-- Sellers (these have permissions to list or create new auctions, and edit them)
-- Buyers (these are standard users which have permissions to register for auctions, and bid on items).
+- Members (these are standard organization users with basic, mostly read-oriented permissions).
 
 There will also be the ability for Administators and Managers to create custom roles that can be assigned to users, with the ability to choose custom permissions for them.
 
-Users may be given multiple roles and permissions. For example, a user may be a Super Administrator, as well as a Seller. Or a user may only be a Seller and a Buyer. Generally administrative roles will have permissions to perform all actions anyway, but the system should support assigning multiple roles to users.
+Users may be given multiple roles and permissions. For example, a user may be a Super Administrator, as well as a Manager. Or a user may only be a Member of an organization. Generally administrative roles will have permissions to perform all actions anyway, but the system should support assigning multiple roles to users.
 
 When a user is created or registered, it should assign the base user a given role, outside of an organization, but they should also be assigned to organization roles if they sign up through an organization token.
 If a user logs in without an organization, it should still give them a basic user token with minimal base permissions for their basic role, but not for any given organization.
