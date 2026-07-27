@@ -89,7 +89,7 @@ not-yet-registered address) pass `""` and get dark.
 
 - **Column:** `users.default_color_mode VARCHAR(10) NOT NULL DEFAULT 'dark'
   CHECK (default_color_mode IN ('dark','light'))` — migration
-  `021_user_default_color_mode`.
+  `022_user_default_color_mode`.
 - **Domain:** `domain.User.DefaultColorMode` (+ `ColorMode()` accessor;
   `NormalizeColorMode` for the fallback).
 - **Repository:** written by `Create`/`Update`, read by the full-column
