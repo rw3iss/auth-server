@@ -842,6 +842,7 @@ Deeper-dive docs live in the [`docs/`](./docs/) directory:
 
 - [`docs/How_It_Works.md`](./docs/How_It_Works.md) — End-to-end walkthrough of the auth lifecycle: registration, login, JWT issuance/refresh, RBAC checks, multi-tenant org isolation, and SSO flows.
 - [`docs/Development.md`](./docs/Development.md) — Local development guide: project layout, running the server, seeding data, writing handlers/services, adding migrations, and the test workflow.
+- [`docs/EMAIL_TEMPLATES.md`](./docs/EMAIL_TEMPLATES.md) — Themed HTML email system: the shared layout/shell + per-message templates, the light/dark shell variants, the recipient `default_color_mode` selection rule, `EMAIL_TEMPLATES_PATH` overrides, and how to add a new email type.
 
 ### Configurable API Prefix
 

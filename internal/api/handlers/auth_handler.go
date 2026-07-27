@@ -940,6 +940,12 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		"permissions": claims.Permissions,
 	}
 
+	// Surface the profile preference the token doesn't carry. Best-effort:
+	// a lookup miss leaves the field off rather than failing the request.
+	if user, err := h.authService.GetUserProfile(r.Context(), claims.UserID); err == nil {
+		resp["default_color_mode"] = user.ColorMode()
+	}
+
 	if claims.OrganizationID != nil {
 		resp["organization_id"] = claims.OrganizationID.String()
 		resp["organization_name"] = claims.OrganizationName

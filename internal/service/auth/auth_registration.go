@@ -386,7 +386,7 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*Regis
 			// up in. Empty when the app row carries no frontend_url
 			// — email layer falls back to CLIENT_URL.
 			appBase := registrationApp.FrontendBaseURL()
-			err = s.emailService.SendVerificationEmail(ctx, appBase, string(result.User.Email), result.User.FirstName, token)
+			err = s.emailService.SendVerificationEmail(ctx, appBase, string(result.User.Email), result.User.FirstName, token, result.User.ColorMode())
 			if err == nil {
 				result.VerificationEmailSent = true
 			}
@@ -484,7 +484,7 @@ func (s *AuthService) ResendVerificationEmail(ctx context.Context, email, appCod
 	if err != nil {
 		return errors.Internal("Failed to generate verification token")
 	}
-	return s.emailService.SendVerificationEmail(ctx, s.resolveAppBaseURL(ctx, appCode), string(user.Email), user.FirstName, token)
+	return s.emailService.SendVerificationEmail(ctx, s.resolveAppBaseURL(ctx, appCode), string(user.Email), user.FirstName, token, user.ColorMode())
 }
 
 // RequestPasswordReset initiates a password reset.

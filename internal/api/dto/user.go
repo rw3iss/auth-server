@@ -6,26 +6,29 @@ import (
 
 // UserResponse represents a user in API responses
 type UserResponse struct {
-	ID              string `json:"id"`
-	Email           string `json:"email"`
-	EmailVerified   bool   `json:"email_verified"`
-	Phone           string `json:"phone,omitempty"`
-	PhoneVerified   bool   `json:"phone_verified,omitempty"`
-	FirstName       string `json:"first_name"`
-	LastName        string `json:"last_name"`
-	DisplayName     string `json:"display_name,omitempty"`
-	AvatarURL       string `json:"avatar_url,omitempty"`
-	Status          string `json:"status"`
-	AuthProvider    string `json:"auth_provider"`
-	TwoFactorEnabled bool  `json:"two_factor_enabled"`
-	LastLoginAt     string `json:"last_login_at,omitempty"`
-	CreatedAt       string `json:"created_at"`
-	UpdatedAt       string `json:"updated_at"`
+	ID               string `json:"id"`
+	Email            string `json:"email"`
+	EmailVerified    bool   `json:"email_verified"`
+	Phone            string `json:"phone,omitempty"`
+	PhoneVerified    bool   `json:"phone_verified,omitempty"`
+	FirstName        string `json:"first_name"`
+	LastName         string `json:"last_name"`
+	DisplayName      string `json:"display_name,omitempty"`
+	AvatarURL        string `json:"avatar_url,omitempty"`
+	Status           string `json:"status"`
+	AuthProvider     string `json:"auth_provider"`
+	TwoFactorEnabled bool   `json:"two_factor_enabled"`
+	// DefaultColorMode is the user's preferred UI/email theme:
+	// "dark" (default) or "light". Migration 021.
+	DefaultColorMode string `json:"default_color_mode"`
+	LastLoginAt      string `json:"last_login_at,omitempty"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
 	// Base roles assigned to this user. Populated by /admin/users
 	// (list + search); omitted on endpoints that don't aggregate them
 	// (e.g. /auth/me uses a separate roles claim path). nil vs empty
 	// slice carries meaning — nil = "not populated", [] = "no roles".
-	Roles           []UserRoleSummary `json:"roles,omitempty"`
+	Roles []UserRoleSummary `json:"roles,omitempty"`
 }
 
 // UserRoleSummary is the slim role shape inlined on user list
@@ -50,6 +53,7 @@ func ToUserResponse(user *domain.User) *UserResponse {
 		Status:           string(user.Status),
 		AuthProvider:     string(user.AuthProvider),
 		TwoFactorEnabled: user.TwoFactorEnabled,
+		DefaultColorMode: user.ColorMode(),
 		CreatedAt:        user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:        user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -68,6 +72,10 @@ type UpdateUserRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
 	Phone       *string `json:"phone,omitempty"`
 	AvatarURL   *string `json:"avatar_url,omitempty"`
+	// DefaultColorMode sets the user's preferred UI/email theme:
+	// "dark" or "light" (migration 021). Invalid values coerce to
+	// "dark" server-side (domain.NormalizeColorMode).
+	DefaultColorMode *string `json:"default_color_mode,omitempty"`
 }
 
 // ListUsersRequest represents a request to list users
@@ -84,7 +92,7 @@ type ListUsersRequest struct {
 
 // ListUsersResponse represents the response for listing users
 type ListUsersResponse struct {
-	Users      []*UserResponse  `json:"users"`
+	Users      []*UserResponse    `json:"users"`
 	Pagination PaginationResponse `json:"pagination"`
 }
 
@@ -104,8 +112,8 @@ type SearchUsersRequest struct {
 
 // UserAuthProviderResponse represents a linked auth provider
 type UserAuthProviderResponse struct {
-	Provider   string `json:"provider"`
-	LinkedAt   string `json:"linked_at"`
+	Provider string `json:"provider"`
+	LinkedAt string `json:"linked_at"`
 }
 
 // ToUserAuthProviderResponse converts a domain auth provider to response

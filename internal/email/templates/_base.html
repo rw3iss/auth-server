@@ -1,49 +1,47 @@
 {{/*
-  Shared email shell. Renders the brand wrapper around `{{.BodyHTML}}`
-  so individual templates can focus on copy + CTA without re-emitting
-  the boilerplate.
+  CivicGate email shell — DARK variant (the default CivicGate look).
 
-  Inputs (set by EmailRenderer.Render before this template fires):
-    .Subject       — email subject (rendered into <title> for some clients)
-    .BodyHTML      — pre-rendered inner HTML from the per-purpose template
-    .BrandName     — defaults to "rw3iss"
-    .BrandColor    — defaults to "#5b8def"
-    .SupportEmail  — defaults to "support@ryanweiss.net"
-    .Year          — current year for the footer
-    .PreviewText   — optional preheader text (shown in inbox preview row)
+  This is the canonical default shell: the renderer loads "_base" for
+  dark mode (and for any send that doesn't specify a color mode), and
+  "_base_light" for light. Operators can still override either file via
+  EMAIL_TEMPLATES_PATH.
+
+  Renders the CivicGate brand wrapper around `{{.BodyHTML}}` so individual
+  templates focus on copy + CTA. Inputs set by Renderer.Render before this
+  fires: .Subject .BodyHTML .BrandName .SupportEmail .Year .PreviewText,
+  plus the palette tokens (.TextColor, .MutedColor, .AccentColor, …).
 
   Email-client safety:
-    - Inlined styles only — Gmail / Outlook strip <style> blocks.
-    - No background-image, no JS, no @media (Outlook ignores it),
-      no flex (Outlook 2016 doesn't support).
-    - Width capped at 560px; mobile clients shrink fine.
-    - All colors use hex; no CSS vars (email clients don't support).
+    - Inline hex only — no CSS vars, no <style>, no @media, no flex, no JS.
+    - Bulletproof <table> layout; width capped at 560px (mobile shrinks).
+    - color-scheme meta keeps dark clients from re-inverting our palette.
 */}}<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
 <title>{{.Subject}}</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f5f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;color:#1a1f2e;">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#f4f5f8;opacity:0;">{{.PreviewText}}</div>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4f5f8;padding:32px 16px;">
+<body style="margin:0;padding:0;background:#0b0e14;font-family:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e8ecf2;">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#0b0e14;opacity:0;">{{.PreviewText}}</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#0b0e14;padding:32px 16px;">
   <tr><td align="center">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,25,50,0.06);">
-      <tr><td style="padding:32px 40px 0;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-          <tr><td>
-            <a href="https://ryanweiss.net" style="text-decoration:none;color:{{.BrandColor}};font-weight:700;font-size:18px;letter-spacing:-0.01em;">{{.BrandName}}</a>
-          </td></tr>
-        </table>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;width:100%;background:#13181f;border:1px solid #232c3b;border-radius:10px;overflow:hidden;">
+      <tr><td style="padding:28px 40px 0;">
+        <a href="https://civicgate.org" style="text-decoration:none;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;letter-spacing:-0.01em;">
+          <span style="color:#e8ecf2;">Civic</span><span style="color:#e8b44a;">Gate</span>
+        </a>
       </td></tr>
-      <tr><td style="padding:24px 40px 32px;">
+      <tr><td style="padding:24px 40px 32px;color:#e8ecf2;">
         {{.BodyHTML}}
       </td></tr>
-      <tr><td style="padding:24px 40px;background:#fafbfd;border-top:1px solid #e1e5ee;color:#7a8195;font-size:12px;line-height:1.6;">
+      <tr><td style="padding:22px 40px;background:#1a2130;border-top:1px solid #232c3b;color:#8896a8;font-size:12px;line-height:1.6;">
+        <div style="color:#8896a8;font-style:italic;margin-bottom:8px;">Neutral civic intelligence.</div>
         <div>You're receiving this because of activity on your {{.BrandName}} account.</div>
-        <div>Need help? <a href="mailto:{{.SupportEmail}}" style="color:#7a8195;text-decoration:underline;">{{.SupportEmail}}</a></div>
-        <div style="margin-top:8px;color:#9ba3b4;">© {{.Year}} {{.BrandName}}. All rights reserved.</div>
+        <div>Need help? <a href="mailto:{{.SupportEmail}}" style="color:#8896a8;text-decoration:underline;">{{.SupportEmail}}</a></div>
+        <div style="margin-top:8px;color:#4a5568;">© {{.Year}} {{.BrandName}}. All rights reserved.</div>
       </td></tr>
     </table>
   </td></tr>

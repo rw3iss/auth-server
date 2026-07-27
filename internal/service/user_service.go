@@ -51,6 +51,9 @@ type UpdateUserInput struct {
 	DisplayName *string `json:"display_name,omitempty"`
 	Phone       *string `json:"phone,omitempty"`
 	AvatarURL   *string `json:"avatar_url,omitempty"`
+	// DefaultColorMode sets the user's preferred UI/email theme
+	// ("dark"|"light"); invalid values coerce to "dark". Migration 021.
+	DefaultColorMode *string `json:"default_color_mode,omitempty"`
 }
 
 // UpdateUser updates a user's profile
@@ -75,6 +78,9 @@ func (s *UserService) UpdateUser(ctx context.Context, userID types.ID, input Upd
 	if input.AvatarURL != nil {
 		user.AvatarURL = *input.AvatarURL
 	}
+	if input.DefaultColorMode != nil {
+		user.DefaultColorMode = domain.NormalizeColorMode(*input.DefaultColorMode)
+	}
 
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, err
@@ -98,8 +104,8 @@ type ListUsersInput struct {
 
 // ListUsersResult contains the result of listing users
 type ListUsersResult struct {
-	Users      []*domain.User    `json:"users"`
-	Pagination types.Pagination  `json:"pagination"`
+	Users      []*domain.User   `json:"users"`
+	Pagination types.Pagination `json:"pagination"`
 }
 
 // ListUsers lists users with filtering

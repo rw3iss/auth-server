@@ -75,13 +75,14 @@ func NewSendGridService(cfg config.EmailConfig, renderer *Renderer, log *slog.Lo
 }
 
 // SendVerificationEmail implements service.EmailService.
-func (s *SendGridService) SendVerificationEmail(ctx context.Context, appBaseURL, email, firstName, token string) error {
+func (s *SendGridService) SendVerificationEmail(ctx context.Context, appBaseURL, email, firstName, token, colorMode string) error {
 	url := fmt.Sprintf("%s/auth/verify-email?token=%s", resolveBaseURL(appBaseURL), token)
 	return s.renderAndSend(ctx, sendArgs{
-		Template: "verification",
-		To:       email,
-		Subject:  "Verify your email address",
-		Preview:  "Confirm your email so we know we can reach you.",
+		Template:  "verification",
+		To:        email,
+		Subject:   "Verify your email address",
+		Preview:   "Confirm your email so we know we can reach you.",
+		ColorMode: colorMode,
 		Data: map[string]any{
 			"FirstName":       firstName,
 			"VerificationURL": url,
@@ -92,13 +93,14 @@ func (s *SendGridService) SendVerificationEmail(ctx context.Context, appBaseURL,
 }
 
 // SendPasswordResetEmail implements service.EmailService.
-func (s *SendGridService) SendPasswordResetEmail(ctx context.Context, appBaseURL, email, firstName, token string) error {
+func (s *SendGridService) SendPasswordResetEmail(ctx context.Context, appBaseURL, email, firstName, token, colorMode string) error {
 	url := fmt.Sprintf("%s/auth/reset?token=%s", resolveBaseURL(appBaseURL), token)
 	return s.renderAndSend(ctx, sendArgs{
-		Template: "password_reset",
-		To:       email,
-		Subject:  "Reset your password",
-		Preview:  "Click the button to choose a new password.",
+		Template:  "password_reset",
+		To:        email,
+		Subject:   "Reset your password",
+		Preview:   "Click the button to choose a new password.",
+		ColorMode: colorMode,
 		Data: map[string]any{
 			"FirstName":     firstName,
 			"ResetURL":      url,
@@ -200,7 +202,9 @@ type sendArgs struct {
 	To       string
 	Subject  string
 	Preview  string
-	Data     map[string]any
+	// ColorMode selects the light/dark shell variant. "" ⇒ dark.
+	ColorMode string
+	Data      map[string]any
 	// CTAUrl is the primary action link in the email. Surfaced to the
 	// text/plain fallback so non-HTML clients still get a usable
 	// message; not used in the HTML render itself (the per-purpose
@@ -216,6 +220,7 @@ func (s *SendGridService) renderAndSend(ctx context.Context, args sendArgs) erro
 		Name:        args.Template,
 		Subject:     args.Subject,
 		PreviewText: args.Preview,
+		ColorMode:   args.ColorMode,
 		Data:        args.Data,
 	})
 	if err != nil {
@@ -228,7 +233,7 @@ func (s *SendGridService) renderAndSend(ctx context.Context, args sendArgs) erro
 		Personalizations: []sgPersonalization{{
 			To: []sgAddress{{Email: args.To}},
 		}},
-		From: sgAddress{Email: s.fromAddress, Name: s.fromName},
+		From:    sgAddress{Email: s.fromAddress, Name: s.fromName},
 		Subject: args.Subject,
 		Content: []sgContent{
 			{Type: "text/plain", Value: plain},

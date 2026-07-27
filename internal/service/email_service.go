@@ -19,11 +19,15 @@ import "context"
 // initiated the send (e.g. system-emitted security alerts) may pass
 // "" and accept the fallback.
 type EmailService interface {
-	// SendVerificationEmail sends an email verification link.
-	SendVerificationEmail(ctx context.Context, appBaseURL, email, firstName, token string) error
+	// SendVerificationEmail sends an email verification link. colorMode
+	// selects the branded shell variant ("dark"|"light") to match the
+	// recipient's preference; pass domain.User.ColorMode() (empty/unknown
+	// falls back to dark).
+	SendVerificationEmail(ctx context.Context, appBaseURL, email, firstName, token, colorMode string) error
 
-	// SendPasswordResetEmail sends a password reset link.
-	SendPasswordResetEmail(ctx context.Context, appBaseURL, email, firstName, token string) error
+	// SendPasswordResetEmail sends a password reset link. colorMode selects
+	// the branded shell variant — see SendVerificationEmail.
+	SendPasswordResetEmail(ctx context.Context, appBaseURL, email, firstName, token, colorMode string) error
 
 	// SendInvitationEmail sends an organization invitation.
 	SendInvitationEmail(ctx context.Context, appBaseURL, email, orgName, inviterName, code, token string) error

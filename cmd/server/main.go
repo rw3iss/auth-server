@@ -181,7 +181,7 @@ func main() {
 			logger.Warn("EMAIL_PROVIDER=smtp but SMTP_HOST not set — using logging no-op")
 			emailService = email.NewNoOpEmailService(logger)
 		} else {
-			emailService, err = email.NewSMTPService(cfg.Email)
+			emailService, err = email.NewSMTPService(cfg.Email, emailRenderer, logger)
 			if err != nil {
 				logger.Warn("smtp init failed; falling back to logging no-op", "err", err)
 				emailService = email.NewNoOpEmailService(logger)

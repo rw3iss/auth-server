@@ -1,25 +1,27 @@
 {{/*
+  Verify-email body. Wrapped by _base / _base_light.
+
   Inputs:
     .FirstName       — user's first name (may be empty)
     .VerificationURL — full URL the user clicks to verify
     .ExpiryHours     — e.g. 24
-
-  Output is one <table>-rooted block; _base.html wraps it.
+  Palette (injected by Renderer): .TextColor .MutedColor .DimColor
+    .ButtonBg .ButtonFg .LinkColor
 */}}
-<h1 style="margin:0 0 16px;font-size:24px;font-weight:600;color:#1a1f2e;letter-spacing:-0.01em;">Verify your email</h1>
-<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#4d5567;">
+<h1 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:700;color:{{.TextColor}};letter-spacing:-0.01em;">Verify your email</h1>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:{{.TextColor}};">
   {{if .FirstName}}Hi {{.FirstName}},{{else}}Hi,{{end}}
 </p>
-<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4d5567;">
-  Confirm this is your email address so we know we can reach you. Tap the button below — it's a one-tap link.
+<p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:{{.MutedColor}};">
+  Confirm this is your email address so we know we can reach you about your CivicGate account. Tap the button below — it's a one-tap link.
 </p>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
-  <tr><td style="border-radius:8px;background:{{.BrandColor}};">
-    <a href="{{.VerificationURL}}" style="display:inline-block;padding:12px 24px;color:#ffffff;text-decoration:none;font-weight:500;font-size:15px;border-radius:8px;">Verify my email</a>
+  <tr><td style="border-radius:8px;background:{{.ButtonBg}};">
+    <a href="{{.VerificationURL}}" style="display:inline-block;padding:13px 28px;color:{{.ButtonFg}};text-decoration:none;font-weight:600;font-size:15px;border-radius:8px;">Verify your email</a>
   </td></tr>
 </table>
-<p style="margin:0 0 8px;font-size:13px;color:#7a8195;">Or copy and paste this URL into your browser:</p>
-<p style="margin:0 0 24px;font-size:13px;color:#7a8195;word-break:break-all;"><a href="{{.VerificationURL}}" style="color:#7a8195;">{{.VerificationURL}}</a></p>
-<p style="margin:0;font-size:13px;color:#7a8195;">
+<p style="margin:0 0 8px;font-size:13px;color:{{.MutedColor}};">Or copy and paste this URL into your browser:</p>
+<p style="margin:0 0 24px;font-size:13px;color:{{.MutedColor}};word-break:break-all;"><a href="{{.VerificationURL}}" style="color:{{.LinkColor}};">{{.VerificationURL}}</a></p>
+<p style="margin:0;font-size:13px;color:{{.DimColor}};">
   This link expires in {{.ExpiryHours}} hours. If you didn't sign up, you can ignore this email.
 </p>

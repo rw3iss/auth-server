@@ -41,10 +41,10 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 			password_hash, auth_provider, provider_user_id,
 			two_factor_enabled, two_factor_secret, two_factor_confirmed_at, failed_login_attempts,
 			locked_until, last_password_change, metadata,
-			created_at, updated_at, namespace
+			created_at, updated_at, namespace, default_color_mode
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
 		)`
 
 	ns := user.Namespace
@@ -58,7 +58,7 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 		user.PasswordHash, user.AuthProvider, user.ProviderUserID,
 		user.TwoFactorEnabled, user.TwoFactorSecret, NullTime(user.TwoFactorConfirmedAt), user.FailedLoginAttempts,
 		NullTime(user.LockedUntil), NullTime(user.LastPasswordChange), user.Metadata,
-		user.CreatedAt, user.UpdatedAt, ns,
+		user.CreatedAt, user.UpdatedAt, ns, domain.NormalizeColorMode(user.DefaultColorMode),
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
@@ -77,7 +77,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id types.ID) (*domain.User
 			COALESCE(password_hash, '') AS password_hash, auth_provider, COALESCE(provider_user_id, '') AS provider_user_id,
 			two_factor_enabled, COALESCE(two_factor_secret, '') AS two_factor_secret, two_factor_confirmed_at, failed_login_attempts,
 			locked_until, last_password_change, last_login_at, password_reset_at,
-			metadata, created_at, updated_at, deleted_at, namespace
+			metadata, created_at, updated_at, deleted_at, namespace, default_color_mode
 		FROM users WHERE id = $1 AND deleted_at IS NULL`
 
 	user := &domain.User{}
@@ -106,7 +106,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email types.Email) (*do
 			COALESCE(password_hash, '') AS password_hash, auth_provider, COALESCE(provider_user_id, '') AS provider_user_id,
 			two_factor_enabled, COALESCE(two_factor_secret, '') AS two_factor_secret, two_factor_confirmed_at, failed_login_attempts,
 			locked_until, last_password_change, last_login_at, password_reset_at,
-			metadata, created_at, updated_at, deleted_at, namespace
+			metadata, created_at, updated_at, deleted_at, namespace, default_color_mode
 		FROM users WHERE LOWER(email) = LOWER($1) AND namespace = $2 AND deleted_at IS NULL`
 
 	user := &domain.User{}
@@ -139,7 +139,7 @@ func (r *UserRepository) GetByEmailInNamespaces(ctx context.Context, email types
 			COALESCE(password_hash, '') AS password_hash, auth_provider, COALESCE(provider_user_id, '') AS provider_user_id,
 			two_factor_enabled, COALESCE(two_factor_secret, '') AS two_factor_secret, two_factor_confirmed_at, failed_login_attempts,
 			locked_until, last_password_change, last_login_at, password_reset_at,
-			metadata, created_at, updated_at, deleted_at, namespace
+			metadata, created_at, updated_at, deleted_at, namespace, default_color_mode
 		FROM users u
 		WHERE LOWER(u.email) = LOWER($1) AND u.deleted_at IS NULL
 		  AND (u.namespace = ANY($2)
@@ -295,7 +295,8 @@ func (r *UserRepository) Update(ctx context.Context, user *domain.User) error {
 			two_factor_enabled = $14, two_factor_secret = $15, two_factor_confirmed_at = $16,
 			failed_login_attempts = $17,
 			locked_until = $18, last_password_change = $19, last_login_at = $20,
-			password_reset_at = $21, metadata = $22, updated_at = $23
+			password_reset_at = $21, metadata = $22, updated_at = $23,
+			default_color_mode = $24
 		WHERE id = $1 AND deleted_at IS NULL`
 
 	q := getQuerier(ctx, r.db)
@@ -307,7 +308,7 @@ func (r *UserRepository) Update(ctx context.Context, user *domain.User) error {
 		user.FailedLoginAttempts,
 		NullTime(user.LockedUntil), NullTime(user.LastPasswordChange),
 		NullTime(user.LastLoginAt), NullTime(user.PasswordResetAt),
-		user.Metadata, user.UpdatedAt,
+		user.Metadata, user.UpdatedAt, domain.NormalizeColorMode(user.DefaultColorMode),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
@@ -437,7 +438,7 @@ func (r *UserRepository) List(ctx context.Context, filter repository.UserFilter)
 			COALESCE(password_hash, '') AS password_hash, auth_provider, COALESCE(provider_user_id, '') AS provider_user_id,
 			two_factor_enabled, COALESCE(two_factor_secret, '') AS two_factor_secret, two_factor_confirmed_at, failed_login_attempts,
 			locked_until, last_password_change, last_login_at, password_reset_at,
-			metadata, created_at, updated_at, deleted_at, namespace
+			metadata, created_at, updated_at, deleted_at, namespace, default_color_mode
 		FROM users WHERE %s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d`,
@@ -537,7 +538,7 @@ func (r *UserRepository) Lookup(ctx context.Context, emails []types.Email, ids [
 			COALESCE(password_hash, '') AS password_hash, auth_provider, COALESCE(provider_user_id, '') AS provider_user_id,
 			two_factor_enabled, COALESCE(two_factor_secret, '') AS two_factor_secret, two_factor_confirmed_at, failed_login_attempts,
 			locked_until, last_password_change, last_login_at, password_reset_at,
-			metadata, created_at, updated_at, deleted_at, namespace
+			metadata, created_at, updated_at, deleted_at, namespace, default_color_mode
 		FROM users
 		WHERE deleted_at IS NULL
 		  AND (LOWER(email) = ANY($1::text[]) OR id = ANY($2::uuid[]))

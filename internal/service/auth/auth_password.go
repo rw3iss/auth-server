@@ -32,7 +32,7 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email, appCode s
 	}
 
 	if s.emailService != nil {
-		return s.emailService.SendPasswordResetEmail(ctx, s.resolveAppBaseURL(ctx, appCode), string(user.Email), user.FirstName, token)
+		return s.emailService.SendPasswordResetEmail(ctx, s.resolveAppBaseURL(ctx, appCode), string(user.Email), user.FirstName, token, user.ColorMode())
 	}
 
 	return nil

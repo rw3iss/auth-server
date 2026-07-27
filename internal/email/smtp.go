@@ -6,280 +6,225 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"html/template"
 	"log/slog"
 	"net/smtp"
 	"os"
-	"path/filepath"
+	"time"
 
 	"github.com/rw3iss/auth/internal/config"
 )
 
-// SMTPService implements EmailService using SMTP
+// SMTPService implements EmailService using SMTP.
+//
+// HTML is rendered through the shared Renderer (the same one SendGrid
+// uses) so the branded CivicGate templates + light/dark shell selection
+// are identical across transports. Messages are sent as
+// multipart/alternative (text/plain + text/html) for deliverability.
 type SMTPService struct {
-	cfg       config.EmailConfig
-	templates map[string]*template.Template
+	cfg      config.EmailConfig
+	renderer *Renderer
+	log      *slog.Logger
 }
 
-// NewSMTPService creates a new SMTP email service
-func NewSMTPService(cfg config.EmailConfig) (*SMTPService, error) {
-	service := &SMTPService{
-		cfg:       cfg,
-		templates: make(map[string]*template.Template),
+// NewSMTPService creates a new SMTP email service. The renderer is
+// required for HTML rendering; when nil the service degrades to
+// plain-text-only sends (the PlainTextFallback body).
+func NewSMTPService(cfg config.EmailConfig, renderer *Renderer, log *slog.Logger) (*SMTPService, error) {
+	if log == nil {
+		log = slog.Default()
 	}
-
-	// Load templates if path is specified
-	if cfg.TemplatesPath != "" {
-		if err := service.loadTemplates(); err != nil {
-			// Don't fail, just log - templates might not exist yet
-			fmt.Printf("Warning: Failed to load email templates: %v\n", err)
-		}
-	}
-
-	return service, nil
+	return &SMTPService{
+		cfg:      cfg,
+		renderer: renderer,
+		log:      log,
+	}, nil
 }
 
-func (s *SMTPService) loadTemplates() error {
-	templateFiles := []string{
-		"verification.html",
-		"password_reset.html",
-		"invitation.html",
-		"welcome.html",
-		"password_changed.html",
-		"security_alert.html",
-	}
+// smtpSendArgs mirrors sendgrid.sendArgs — the common shape each send
+// method assembles before renderAndSend renders + transmits it.
+type smtpSendArgs struct {
+	template  string
+	to        string
+	subject   string
+	preview   string
+	colorMode string // "dark"|"light"; "" ⇒ dark
+	data      map[string]any
+	ctaURL    string // surfaced to the text/plain fallback
+}
 
-	for _, file := range templateFiles {
-		path := filepath.Join(s.cfg.TemplatesPath, file)
-		tmpl, err := template.ParseFiles(path)
+// renderAndSend renders the template through the shared Renderer and
+// dispatches a multipart/alternative message. Falls back to a
+// plain-text-only send when no renderer is wired.
+func (s *SMTPService) renderAndSend(args smtpSendArgs) error {
+	brand := s.cfg.FromName
+	var html string
+	if s.renderer != nil {
+		brand = s.renderer.brandName
+		rendered, err := s.renderer.Render(RenderInput{
+			Name:        args.template,
+			Subject:     args.subject,
+			PreviewText: args.preview,
+			ColorMode:   args.colorMode,
+			Data:        args.data,
+		})
 		if err != nil {
-			continue // Skip missing templates
+			return fmt.Errorf("render %s: %w", args.template, err)
 		}
-		name := file[:len(file)-5] // Remove .html extension
-		s.templates[name] = tmpl
+		html = rendered.HTML
 	}
-
-	return nil
+	plain := PlainTextFallback(brand, args.subject, args.ctaURL)
+	return s.send(args.to, args.subject, plain, html)
 }
 
-// SendVerificationEmail sends an email verification link
-func (s *SMTPService) SendVerificationEmail(ctx context.Context, appBaseURL, email, firstName, token string) error {
-	subject := "Verify your email address"
-	data := map[string]string{
-		"FirstName":       firstName,
-		"VerificationURL": fmt.Sprintf("%s/auth/verify-email?token=%s", resolveBaseURL(appBaseURL), token),
-	}
-
-	body, err := s.renderTemplate("verification", data)
-	if err != nil {
-		// Fallback to plain text
-		body = fmt.Sprintf(`Hello %s,
-
-Please verify your email address by clicking the link below:
-
-%s
-
-This link will expire in 24 hours.
-
-Best regards,
-The rw3iss Team`, firstName, data["VerificationURL"])
-	}
-
-	return s.send(email, subject, body)
+// SendVerificationEmail sends an email verification link.
+func (s *SMTPService) SendVerificationEmail(ctx context.Context, appBaseURL, email, firstName, token, colorMode string) error {
+	url := fmt.Sprintf("%s/auth/verify-email?token=%s", resolveBaseURL(appBaseURL), token)
+	return s.renderAndSend(smtpSendArgs{
+		template:  "verification",
+		to:        email,
+		subject:   "Verify your email address",
+		preview:   "Confirm your email so we know we can reach you.",
+		colorMode: colorMode,
+		data: map[string]any{
+			"FirstName":       firstName,
+			"VerificationURL": url,
+			"ExpiryHours":     24,
+		},
+		ctaURL: url,
+	})
 }
 
-// SendPasswordResetEmail sends a password reset link
-func (s *SMTPService) SendPasswordResetEmail(ctx context.Context, appBaseURL, email, firstName, token string) error {
-	subject := "Reset your password"
-	resetURL := fmt.Sprintf("%s/auth/reset?token=%s", resolveBaseURL(appBaseURL), token)
-	data := map[string]string{
-		"FirstName": firstName,
-		"ResetURL":  resetURL,
-	}
-
-	// Log the reset link to console for development
-	fmt.Printf("\n========================================\n")
-	fmt.Printf("PASSWORD RESET LINK for %s:\n%s\n", email, resetURL)
-	fmt.Printf("========================================\n\n")
-
-	body, err := s.renderTemplate("password_reset", data)
-	if err != nil {
-		body = fmt.Sprintf(`Hello %s,
-
-You requested to reset your password. Click the link below to proceed:
-
-%s
-
-This link will expire in 1 hour. If you didn't request this, please ignore this email.
-
-Best regards,
-The rw3iss Team`, firstName, data["ResetURL"])
-	}
-
-	return s.send(email, subject, body)
+// SendPasswordResetEmail sends a password reset link.
+func (s *SMTPService) SendPasswordResetEmail(ctx context.Context, appBaseURL, email, firstName, token, colorMode string) error {
+	url := fmt.Sprintf("%s/auth/reset?token=%s", resolveBaseURL(appBaseURL), token)
+	return s.renderAndSend(smtpSendArgs{
+		template:  "password_reset",
+		to:        email,
+		subject:   "Reset your password",
+		preview:   "Click the button to choose a new password.",
+		colorMode: colorMode,
+		data: map[string]any{
+			"FirstName":     firstName,
+			"ResetURL":      url,
+			"ExpiryMinutes": 60,
+		},
+		ctaURL: url,
+	})
 }
 
 // SendMagicLinkEmail delivers a one-tap sign-in link.
 func (s *SMTPService) SendMagicLinkEmail(ctx context.Context, appBaseURL, email, firstName, token string) error {
-	subject := "Your sign-in link"
 	url := fmt.Sprintf("%s/auth/magic-link/verify?token=%s", resolveBaseURL(appBaseURL), token)
-	data := map[string]string{"FirstName": firstName, "URL": url}
-	body, err := s.renderTemplate("magic_link", data)
-	if err != nil {
-		// Fall through to inline copy when the template file is absent —
-		// magic-link is a new flow (migration 014) and operators haven't
-		// shipped a template for it in many existing deployments.
-		body = fmt.Sprintf(`Hello %s,
-
-Click the link below to sign in:
-
-%s
-
-This link expires in 15 minutes. If you didn't request it, ignore this email.
-
-— The rw3iss Team`, firstName, url)
-	}
-	return s.send(email, subject, body)
+	return s.renderAndSend(smtpSendArgs{
+		template: "magic_link",
+		to:       email,
+		subject:  "Your sign-in link",
+		preview:  "One-tap sign-in — no password needed.",
+		data: map[string]any{
+			"FirstName":     firstName,
+			"URL":           url,
+			"ExpiryMinutes": 15,
+		},
+		ctaURL: url,
+	})
 }
 
-// SendInvitationEmail sends an organization invitation
+// SendInvitationEmail sends an organization invitation.
 func (s *SMTPService) SendInvitationEmail(ctx context.Context, appBaseURL, email, orgName, inviterName, code, token string) error {
-	subject := fmt.Sprintf("You've been invited to join %s", orgName)
-	data := map[string]string{
-		"OrgName":     orgName,
-		"InviterName": inviterName,
-		"Code":        code,
-		"InviteURL":   fmt.Sprintf("%s/auth/accept-invite?code=%s&token=%s", resolveBaseURL(appBaseURL), code, token),
-	}
-
-	body, err := s.renderTemplate("invitation", data)
-	if err != nil {
-		body = fmt.Sprintf(`Hello,
-
-%s has invited you to join %s on the rw3iss auction platform.
-
-You can accept this invitation by:
-
-1. Using this invite code: %s
-2. Or clicking this link: %s
-
-This invitation will expire in 7 days.
-
-Best regards,
-The rw3iss Team`, inviterName, orgName, code, data["InviteURL"])
-	}
-
-	return s.send(email, subject, body)
+	url := fmt.Sprintf("%s/auth/accept-invite?code=%s&token=%s", resolveBaseURL(appBaseURL), code, token)
+	return s.renderAndSend(smtpSendArgs{
+		template: "invitation",
+		to:       email,
+		subject:  fmt.Sprintf("You've been invited to join %s", orgName),
+		preview:  fmt.Sprintf("%s invited you to %s.", inviterName, orgName),
+		data: map[string]any{
+			"OrgName":     orgName,
+			"InviterName": inviterName,
+			"AcceptURL":   url,
+			"Code":        code,
+			"ExpiryDays":  7,
+		},
+		ctaURL: url,
+	})
 }
 
-// SendWelcomeEmail sends a welcome email after registration
+// SendWelcomeEmail sends a welcome email after registration.
 func (s *SMTPService) SendWelcomeEmail(ctx context.Context, appBaseURL, email, firstName string) error {
-	_ = appBaseURL // SMTP welcome template is link-less; param kept for interface uniformity.
-	subject := "Welcome to rw3iss"
-	data := map[string]string{
-		"FirstName": firstName,
-	}
-
-	body, err := s.renderTemplate("welcome", data)
-	if err != nil {
-		body = fmt.Sprintf(`Hello %s,
-
-Welcome to rw3iss! We're excited to have you on board.
-
-You can now access your account and start exploring our auction platform.
-
-If you have any questions, feel free to reach out to our support team.
-
-Best regards,
-The rw3iss Team`, firstName)
-	}
-
-	return s.send(email, subject, body)
+	base := resolveBaseURL(appBaseURL)
+	return s.renderAndSend(smtpSendArgs{
+		template: "welcome",
+		to:       email,
+		subject:  "Welcome to CivicGate",
+		preview:  "Your account is ready.",
+		data: map[string]any{
+			"FirstName":    firstName,
+			"DashboardURL": base,
+		},
+	})
 }
 
-// SendPasswordChangedEmail notifies user of password change
+// SendPasswordChangedEmail notifies user of password change.
 func (s *SMTPService) SendPasswordChangedEmail(ctx context.Context, appBaseURL, email, firstName string) error {
-	_ = appBaseURL // SMTP plain-text variant doesn't include a link; honored by HTML renderer in sendgrid.go.
-	subject := "Your password has been changed"
-	data := map[string]string{
-		"FirstName": firstName,
-	}
-
-	body, err := s.renderTemplate("password_changed", data)
-	if err != nil {
-		body = fmt.Sprintf(`Hello %s,
-
-Your password has been successfully changed.
-
-If you didn't make this change, please contact our support team immediately.
-
-Best regards,
-The rw3iss Team`, firstName)
-	}
-
-	return s.send(email, subject, body)
+	base := resolveBaseURL(appBaseURL)
+	return s.renderAndSend(smtpSendArgs{
+		template: "password_changed",
+		to:       email,
+		subject:  "Your password was changed",
+		preview:  "Heads-up — your password just changed.",
+		data: map[string]any{
+			"FirstName":   firstName,
+			"SecurityURL": base + "/profile",
+		},
+	})
 }
 
-// SendSecurityAlertEmail sends a security alert
+// SendSecurityAlertEmail sends a security alert.
 func (s *SMTPService) SendSecurityAlertEmail(ctx context.Context, appBaseURL, email, firstName, alertType, details string) error {
-	_ = appBaseURL // SMTP plain-text variant doesn't include a link; honored by HTML renderer in sendgrid.go.
-	subject := "Security Alert"
-	data := map[string]string{
-		"FirstName": firstName,
-		"AlertType": alertType,
-		"Details":   details,
-	}
-
-	body, err := s.renderTemplate("security_alert", data)
-	if err != nil {
-		body = fmt.Sprintf(`Hello %s,
-
-We detected unusual activity on your account:
-
-Alert Type: %s
-Details: %s
-
-If this wasn't you, please secure your account immediately by changing your password.
-
-Best regards,
-The rw3iss Team`, firstName, alertType, details)
-	}
-
-	return s.send(email, subject, body)
+	base := resolveBaseURL(appBaseURL)
+	return s.renderAndSend(smtpSendArgs{
+		template: "security_alert",
+		to:       email,
+		subject:  fmt.Sprintf("Security alert: %s", alertType),
+		preview:  "We noticed something on your account.",
+		data: map[string]any{
+			"FirstName":   firstName,
+			"AlertType":   alertType,
+			"Details":     details,
+			"SecurityURL": base + "/profile",
+		},
+	})
 }
 
-func (s *SMTPService) renderTemplate(name string, data interface{}) (string, error) {
-	tmpl, ok := s.templates[name]
-	if !ok {
-		return "", fmt.Errorf("template %s not found", name)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
-}
-
-func (s *SMTPService) send(to, subject, body string) error {
+// send transmits a message over SMTP. When html is non-empty the body is
+// multipart/alternative (text/plain + text/html); otherwise it's a bare
+// text/plain message.
+func (s *SMTPService) send(to, subject, plain, html string) error {
 	from := s.cfg.FromAddress
 	if s.cfg.FromName != "" {
 		from = fmt.Sprintf("%s <%s>", s.cfg.FromName, s.cfg.FromAddress)
 	}
 
-	headers := make(map[string]string)
-	headers["From"] = from
-	headers["To"] = to
-	headers["Subject"] = subject
-	headers["MIME-Version"] = "1.0"
-	headers["Content-Type"] = "text/html; charset=UTF-8"
+	var msg bytes.Buffer
+	fmt.Fprintf(&msg, "From: %s\r\n", from)
+	fmt.Fprintf(&msg, "To: %s\r\n", to)
+	fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
+	msg.WriteString("MIME-Version: 1.0\r\n")
 
-	message := ""
-	for k, v := range headers {
-		message += fmt.Sprintf("%s: %s\r\n", k, v)
+	if html == "" {
+		msg.WriteString("Content-Type: text/plain; charset=UTF-8\r\n\r\n")
+		msg.WriteString(plain)
+	} else {
+		boundary := fmt.Sprintf("cg-boundary-%d", time.Now().UnixNano())
+		fmt.Fprintf(&msg, "Content-Type: multipart/alternative; boundary=%q\r\n\r\n", boundary)
+		fmt.Fprintf(&msg, "--%s\r\n", boundary)
+		msg.WriteString("Content-Type: text/plain; charset=UTF-8\r\n\r\n")
+		msg.WriteString(plain + "\r\n\r\n")
+		fmt.Fprintf(&msg, "--%s\r\n", boundary)
+		msg.WriteString("Content-Type: text/html; charset=UTF-8\r\n\r\n")
+		msg.WriteString(html + "\r\n\r\n")
+		fmt.Fprintf(&msg, "--%s--\r\n", boundary)
 	}
-	message += "\r\n" + body
+	message := msg.Bytes()
 
 	addr := fmt.Sprintf("%s:%d", s.cfg.SMTPHost, s.cfg.SMTPPort)
 
@@ -289,10 +234,10 @@ func (s *SMTPService) send(to, subject, body string) error {
 	}
 
 	if s.cfg.SMTPSecure {
-		return s.sendTLS(addr, auth, s.cfg.FromAddress, to, []byte(message))
+		return s.sendTLS(addr, auth, s.cfg.FromAddress, to, message)
 	}
 
-	return smtp.SendMail(addr, auth, s.cfg.FromAddress, []string{to}, []byte(message))
+	return smtp.SendMail(addr, auth, s.cfg.FromAddress, []string{to}, message)
 }
 
 func (s *SMTPService) sendTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
@@ -384,17 +329,17 @@ func NewNoOpEmailService(log *slog.Logger) *NoOpEmailService {
 	return &NoOpEmailService{log: log}
 }
 
-func (s *NoOpEmailService) SendVerificationEmail(_ context.Context, appBaseURL, email, firstName, token string) error {
+func (s *NoOpEmailService) SendVerificationEmail(_ context.Context, appBaseURL, email, firstName, token, colorMode string) error {
 	url := fmt.Sprintf("%s/auth/verify-email?token=%s", resolveBaseURL(appBaseURL), token)
 	s.log.Info("email (suppressed: no provider configured) — verify-email",
-		"to", email, "first_name", firstName, "verify_url", url)
+		"to", email, "first_name", firstName, "color_mode", colorMode, "verify_url", url)
 	return nil
 }
 
-func (s *NoOpEmailService) SendPasswordResetEmail(_ context.Context, appBaseURL, email, firstName, token string) error {
+func (s *NoOpEmailService) SendPasswordResetEmail(_ context.Context, appBaseURL, email, firstName, token, colorMode string) error {
 	url := fmt.Sprintf("%s/auth/reset?token=%s", resolveBaseURL(appBaseURL), token)
 	s.log.Info("email (suppressed: no provider configured) — password-reset",
-		"to", email, "first_name", firstName, "reset_url", url)
+		"to", email, "first_name", firstName, "color_mode", colorMode, "reset_url", url)
 	return nil
 }
 

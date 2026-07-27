@@ -513,6 +513,13 @@ func (s *AuthService) GetUserSessions(ctx context.Context, userID types.ID) ([]*
 	return s.jwtService.GetUserSessions(ctx, userID)
 }
 
+// GetUserProfile loads the full user row for a given id. Used by the
+// /auth/me handler to surface profile fields (e.g. default_color_mode)
+// that aren't carried in the JWT claims.
+func (s *AuthService) GetUserProfile(ctx context.Context, userID types.ID) (*domain.User, error) {
+	return s.userRepo.GetByID(ctx, userID)
+}
+
 // TerminateSession terminates a specific session
 func (s *AuthService) TerminateSession(ctx context.Context, userID, sessionID types.ID) error {
 	session, err := s.tokenRepo.GetSession(ctx, sessionID)

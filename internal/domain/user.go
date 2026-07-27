@@ -10,6 +10,25 @@ import (
 // explicit one. Migration 017 / docs/USER_POOLS.md.
 const DefaultNamespace = "default"
 
+// Color modes for User.DefaultColorMode (migration 021). Dark is the
+// default — it matches the CivicGate default theme. The transactional
+// email layer uses this to pick the light/dark branded shell variant
+// when sending to a known user.
+const (
+	ColorModeDark  = "dark"
+	ColorModeLight = "light"
+)
+
+// NormalizeColorMode coerces an arbitrary string to a valid color mode,
+// falling back to ColorModeDark for empty/unknown values. This is the
+// single place the "unknown ⇒ dark" rule lives.
+func NormalizeColorMode(s string) string {
+	if s == ColorModeLight {
+		return ColorModeLight
+	}
+	return ColorModeDark
+}
+
 // User extends BaseUser with authentication-specific fields
 type User struct {
 	models.BaseUser
@@ -20,13 +39,21 @@ type User struct {
 	// docs/USER_POOLS.md.
 	Namespace string `json:"namespace" db:"namespace"`
 
+	// DefaultColorMode is the user's preferred UI/email theme (migration
+	// 021): "dark" (default) or "light". The email layer selects the
+	// matching branded shell variant when sending to this user; product
+	// clients may read/write it as a profile preference. Use ColorMode()
+	// rather than reading this directly so empty/legacy values resolve
+	// to dark.
+	DefaultColorMode string `json:"default_color_mode" db:"default_color_mode"`
+
 	// Authentication fields (internal to auth service)
-	PasswordHash     string              `json:"-" db:"password_hash"`
-	AuthProvider     types.AuthProvider  `json:"auth_provider" db:"auth_provider"`
-	ProviderUserID   string              `json:"-" db:"provider_user_id"`
-	TwoFactorEnabled     bool             `json:"two_factor_enabled" db:"two_factor_enabled"`
-	TwoFactorSecret      string           `json:"-" db:"two_factor_secret"`
-	TwoFactorConfirmedAt *types.Timestamp `json:"two_factor_confirmed_at,omitempty" db:"two_factor_confirmed_at"`
+	PasswordHash         string             `json:"-" db:"password_hash"`
+	AuthProvider         types.AuthProvider `json:"auth_provider" db:"auth_provider"`
+	ProviderUserID       string             `json:"-" db:"provider_user_id"`
+	TwoFactorEnabled     bool               `json:"two_factor_enabled" db:"two_factor_enabled"`
+	TwoFactorSecret      string             `json:"-" db:"two_factor_secret"`
+	TwoFactorConfirmedAt *types.Timestamp   `json:"two_factor_confirmed_at,omitempty" db:"two_factor_confirmed_at"`
 
 	// Security fields
 	FailedLoginAttempts int              `json:"-" db:"failed_login_attempts"`
@@ -49,9 +76,17 @@ func NewUser(email types.Email, firstName, lastName string) *User {
 			Status:        types.UserStatusPending,
 			EmailVerified: false,
 		},
-		Namespace:    DefaultNamespace,
-		AuthProvider: types.AuthProviderLocal,
+		Namespace:        DefaultNamespace,
+		DefaultColorMode: ColorModeDark,
+		AuthProvider:     types.AuthProviderLocal,
 	}
+}
+
+// ColorMode returns the user's effective color mode, resolving empty or
+// legacy values to ColorModeDark. Prefer this over reading
+// DefaultColorMode directly so the "unknown ⇒ dark" fallback is uniform.
+func (u *User) ColorMode() string {
+	return NormalizeColorMode(u.DefaultColorMode)
 }
 
 // IsTwoFactorActive reports whether 2FA is enrolled AND confirmed for this
@@ -108,13 +143,13 @@ func (u *User) Suspend() {
 type UserAuthProvider struct {
 	models.BaseModel
 
-	UserID         types.ID            `json:"user_id" db:"user_id"`
-	Provider       types.AuthProvider  `json:"provider" db:"provider"`
-	ProviderUserID string              `json:"provider_user_id" db:"provider_user_id"`
-	AccessToken    string              `json:"-" db:"access_token"`
-	RefreshToken   string              `json:"-" db:"refresh_token"`
-	TokenExpiry    *types.Timestamp    `json:"-" db:"token_expiry"`
-	ProviderData   types.JSON          `json:"-" db:"provider_data"`
+	UserID         types.ID           `json:"user_id" db:"user_id"`
+	Provider       types.AuthProvider `json:"provider" db:"provider"`
+	ProviderUserID string             `json:"provider_user_id" db:"provider_user_id"`
+	AccessToken    string             `json:"-" db:"access_token"`
+	RefreshToken   string             `json:"-" db:"refresh_token"`
+	TokenExpiry    *types.Timestamp   `json:"-" db:"token_expiry"`
+	ProviderData   types.JSON         `json:"-" db:"provider_data"`
 }
 
 // NewUserAuthProvider creates a new authentication provider link

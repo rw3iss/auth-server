@@ -77,13 +77,16 @@ func NewRenderer(cfg RendererConfig) *Renderer {
 		loaded:       map[string]*template.Template{},
 	}
 	if r.brandName == "" {
-		r.brandName = "rw3iss"
+		r.brandName = "CivicGate"
 	}
 	if r.brandColor == "" {
-		r.brandColor = "#5b8def"
+		// Kept for back-compat with any operator override that still reads
+		// {{.BrandColor}}; the CivicGate templates use the palette tokens
+		// (ButtonBg etc.) instead. Value = CivicGate primary (dark).
+		r.brandColor = "#3f7fff"
 	}
 	if r.supportEmail == "" {
-		r.supportEmail = "support@ryanweiss.net"
+		r.supportEmail = "support@civicgate.org"
 	}
 	return r
 }
@@ -109,6 +112,71 @@ type RenderInput struct {
 	// fields (BrandName, BrandColor, SupportEmail, Year) are injected
 	// automatically — caller doesn't need to provide them.
 	Data map[string]any
+
+	// ColorMode selects the branded shell + palette variant: "dark"
+	// (default) or "light". Any other/empty value resolves to dark. When
+	// sending to a known user, callers pass that user's DefaultColorMode
+	// (see domain.User.ColorMode); anonymous sends fall back to dark.
+	ColorMode string
+}
+
+// palette holds the inline hex tokens for one color mode. Values are
+// transcribed from CivicGate's DESIGN.md (email clients don't support CSS
+// variables, so every color must be a literal hex). Injected into both the
+// shell and the per-purpose templates so a single content template renders
+// correctly in either mode. Dark is the default CivicGate look.
+type palette struct {
+	Bg       string // page background
+	Surface  string // card surface
+	Surface2 string // footer / secondary surface
+	Border   string // hairline border
+	Text     string // primary text
+	Muted    string // secondary text
+	Dim      string // tertiary text
+	ButtonBg string // primary button background
+	ButtonFg string // primary button text
+	Link     string // link color
+	Accent   string // "Gate" amber accent
+}
+
+// darkPalette / lightPalette mirror DESIGN.md's dark (default) + light
+// token tables.
+var (
+	darkPalette = palette{
+		Bg:       "#0b0e14",
+		Surface:  "#13181f",
+		Surface2: "#1a2130",
+		Border:   "#232c3b",
+		Text:     "#e8ecf2",
+		Muted:    "#8896a8",
+		Dim:      "#4a5568",
+		ButtonBg: "#3f7fff",
+		ButtonFg: "#ffffff",
+		Link:     "#6f9dff",
+		Accent:   "#e8b44a",
+	}
+	lightPalette = palette{
+		Bg:       "#f7f8fa",
+		Surface:  "#ffffff",
+		Surface2: "#eef1f5",
+		Border:   "#dfe4ea",
+		Text:     "#16202e",
+		Muted:    "#5a6a7d",
+		Dim:      "#94a2b3",
+		ButtonBg: "#2f6bff",
+		ButtonFg: "#ffffff",
+		Link:     "#2f6bff",
+		Accent:   "#c8901f",
+	}
+)
+
+// paletteFor resolves a color-mode string to its palette. Unknown/empty
+// modes fall back to dark — the CivicGate default.
+func paletteFor(mode string) (palette, string) {
+	if mode == "light" {
+		return lightPalette, "light"
+	}
+	return darkPalette, "dark"
 }
 
 // RenderedEmail is the result of Render — both the subject and the
@@ -133,9 +201,18 @@ func (r *Renderer) Render(in RenderInput) (*RenderedEmail, error) {
 	if err != nil {
 		return nil, err
 	}
-	shellTmpl, err := r.loadTemplate("_base")
+
+	// Resolve the color-mode variant. Dark is the default CivicGate look;
+	// the dark shell lives at "_base" (kept as the canonical default so
+	// existing operator overrides keep working), light at "_base_light".
+	pal, mode := paletteFor(in.ColorMode)
+	shellName := "_base"
+	if mode == "light" {
+		shellName = "_base_light"
+	}
+	shellTmpl, err := r.loadTemplate(shellName)
 	if err != nil {
-		return nil, fmt.Errorf("load base shell: %w", err)
+		return nil, fmt.Errorf("load base shell %q: %w", shellName, err)
 	}
 
 	// Merge shell fields + caller data; caller wins on collision so a
@@ -148,6 +225,21 @@ func (r *Renderer) Render(in RenderInput) (*RenderedEmail, error) {
 		"Year":         time.Now().Year(),
 		"Subject":      in.Subject,
 		"PreviewText":  in.PreviewText,
+		// Palette tokens (inline hex) for the resolved color mode. Both the
+		// shell and per-purpose templates read these so one content
+		// template renders correctly in dark + light.
+		"ColorMode":     mode,
+		"BgColor":       pal.Bg,
+		"SurfaceColor":  pal.Surface,
+		"Surface2Color": pal.Surface2,
+		"BorderColor":   pal.Border,
+		"TextColor":     pal.Text,
+		"MutedColor":    pal.Muted,
+		"DimColor":      pal.Dim,
+		"ButtonBg":      pal.ButtonBg,
+		"ButtonFg":      pal.ButtonFg,
+		"LinkColor":     pal.Link,
+		"AccentColor":   pal.Accent,
 	}
 	for k, v := range in.Data {
 		data[k] = v

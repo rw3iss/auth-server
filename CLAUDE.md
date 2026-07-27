@@ -286,6 +286,9 @@ migrations/              Raw SQL, applied in filename order. Current set:
                          apps.linked_app_codes (§7 auto-provisioning),
                          021 demo system_admin (ryan@ryanweiss.net) +
                          auth-client-demo app membership.
+                         022 users.default_color_mode ('dark'|'light',
+                         default 'dark') — email light/dark shell selection +
+                         profile theme preference (docs/EMAIL_TEMPLATES.md).
 
 scripts/
 ├── entrypoint.sh        Docker startup: wait-for-DB, migrate, launch.
@@ -512,7 +515,7 @@ Base path: `${API_PREFIX}` (default `/api/v1`).
 4. **Per-IP rate limiter falls open in-memory when Redis is unavailable.** Per-account limiter (`auth:account_attempts:*`) is Redis-only and degrades to "no per-account cap" when Redis is down — refresh-token revocation still works via DB. Multi-replica deployments **need** Redis to be effective.
 5. **Redis is optional, not critical.** If down: token cache becomes no-op (signature-only validation downstream), token-version invalidation can't take effect (access tokens persist to natural exp), SSO state falls back to in-memory (single-replica only), idempotency middleware passes through. Server boots fine.
 6. **Email is synchronous.** Sends happen inside handlers — a slow provider slows the response. Async goroutine dispatch is on the roadmap.
-7. **Email templates are operator-provided.** Not in repo; point `EMAIL_TEMPLATES_PATH` at your HTML files.
+7. **Email templates ship embedded (CivicGate-themed).** `internal/email/templates/` is baked into the binary via `go:embed`; a shared shell (`_base.html` dark / `_base_light.html` light) wraps per-message bodies, and the `Renderer` picks the light/dark variant from the recipient's `users.default_color_mode` (fallback dark). Operators can still override any file by pointing `EMAIL_TEMPLATES_PATH` at their own HTML. Full details + "add a new email type": `docs/EMAIL_TEMPLATES.md`.
 8. **SSO state uses Redis when connected.** Atomic GETDEL prevents double-submit races (AUDIT 1.14). Falls back to single-mutex in-memory when Redis is down. Server restart with in-memory state = user retries login.
 9. **React strict-mode double-mount** can cause SSO callback double-invocation; atomic state validation now handles this server-side, but be aware client-side that two requests may hit before the second sees the state cleared.
 10. **No OIDC / JWKS endpoint.** First-party only, HS256. Adding OIDC support is a significant refactor.
