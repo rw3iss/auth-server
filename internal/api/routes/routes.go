@@ -147,6 +147,7 @@ func SetupRoutes(
 
 	// Protected auth routes
 	router.Handle("GET "+p+"/auth/me", authMw.Authenticate(http.HandlerFunc(authHandler.GetMe)))
+	router.Handle("PATCH "+p+"/auth/me", authMw.Authenticate(http.HandlerFunc(authHandler.UpdateMe)))
 	router.Handle("POST "+p+"/auth/password/change", authMw.Authenticate(http.HandlerFunc(authHandler.ChangePassword)))
 	router.Handle("POST "+p+"/auth/admin/set-password", authMw.Authenticate(http.HandlerFunc(authHandler.AdminSetPassword)))
 	router.Handle("POST "+p+"/auth/check-email", authMw.Authenticate(http.HandlerFunc(authHandler.CheckEmail)))

@@ -520,6 +520,20 @@ func (s *AuthService) GetUserProfile(ctx context.Context, userID types.ID) (*dom
 	return s.userRepo.GetByID(ctx, userID)
 }
 
+// UpdateColorMode sets the caller's own UI/email theme preference (dark|light).
+// Self-service: the only profile field a user may change without the admin routes.
+func (s *AuthService) UpdateColorMode(ctx context.Context, userID types.ID, mode string) (*domain.User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	user.DefaultColorMode = domain.NormalizeColorMode(mode)
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 // TerminateSession terminates a specific session
 func (s *AuthService) TerminateSession(ctx context.Context, userID, sessionID types.ID) error {
 	session, err := s.tokenRepo.GetSession(ctx, sessionID)

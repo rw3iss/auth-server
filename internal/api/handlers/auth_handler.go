@@ -924,6 +924,34 @@ func (h *AuthHandler) GetEnabledProviders(w http.ResponseWriter, r *http.Request
 }
 
 // GetMe returns the current authenticated user
+// UpdateMe lets the authenticated user change their own self-service profile
+// preferences. Currently only default_color_mode (UI/email theme); role/status/
+// identity changes stay on the admin routes.
+func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		writeError(w, errors.Unauthorized("Authentication required"))
+		return
+	}
+	var req struct {
+		DefaultColorMode *string `json:"default_color_mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, errors.InvalidInput("body", "invalid JSON"))
+		return
+	}
+	if req.DefaultColorMode == nil {
+		writeError(w, errors.InvalidInput("default_color_mode", "required"))
+		return
+	}
+	user, err := h.authService.UpdateColorMode(r.Context(), claims.UserID, *req.DefaultColorMode)
+	if err != nil {
+		handleServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"default_color_mode": user.ColorMode()})
+}
+
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
