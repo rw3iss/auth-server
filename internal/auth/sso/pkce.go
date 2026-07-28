@@ -30,11 +30,25 @@ package sso
 // until the public client proves possession of the original verifier.
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 
 	"github.com/rw3iss/auth/pkg/shared/errors"
 )
+
+// GenerateCodeVerifier returns a fresh RFC 7636 §4.1 code_verifier — 32 random
+// bytes base64url-encoded (unpadded) = 43 chars, inside the mandated 43..128
+// range and drawn from the unreserved alphabet. Used by the manager to mint a
+// provider-leg verifier for providers that require PKCE on the server↔provider
+// exchange (X/Twitter mandates it even for confidential clients).
+func GenerateCodeVerifier() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
 
 // Code challenge method constants. RFC 7636 §4.3 names two methods: "plain"
 // (verifier == challenge — provides no defense against challenge capture) and

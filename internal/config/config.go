@@ -144,6 +144,7 @@ type SSOConfig struct {
 	GitHub    OAuthProviderConfig
 	Facebook  OAuthProviderConfig
 	LinkedIn  OAuthProviderConfig
+	X         OAuthProviderConfig
 	Custom    map[string]OAuthProviderConfig
 	// AllowedRedirectURLs is the allowlist for /auth/sso/url. AUDIT 1.13:
 	// without an allowlist, an attacker can request an SSO URL pointing
@@ -351,6 +352,17 @@ func Load() (*Config, error) {
 				ClientSecret: getEnv("SSO_LINKEDIN_CLIENT_SECRET", ""),
 				RedirectURL:  getEnv("SSO_LINKEDIN_REDIRECT_URL", ""),
 				Scopes:       getEnvAsSlice("SSO_LINKEDIN_SCOPES", []string{"openid", "profile", "email"}),
+			},
+			// X ("Login with X" / Twitter OAuth 2.0). Confidential client:
+			// ClientSecret is the app's OAuth 2.0 Client Secret (Basic auth on
+			// the token leg). X mandates PKCE; offline.access yields a
+			// refresh_token. Default scopes are the minimal identity set.
+			X: OAuthProviderConfig{
+				Enabled:      getEnvAsBool("SSO_X_ENABLED", false),
+				ClientID:     getEnv("SSO_X_CLIENT_ID", ""),
+				ClientSecret: getEnv("SSO_X_CLIENT_SECRET", ""),
+				RedirectURL:  getEnv("SSO_X_REDIRECT_URL", ""),
+				Scopes:       getEnvAsSlice("SSO_X_SCOPES", []string{"tweet.read", "users.read", "offline.access"}),
 			},
 			Custom:              make(map[string]OAuthProviderConfig),
 			AllowedRedirectURLs: getEnvAsSlice("SSO_ALLOWED_REDIRECT_URLS", []string{}),

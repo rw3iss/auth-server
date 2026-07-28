@@ -44,6 +44,29 @@ type Provider interface {
 	IsEnabled() bool
 }
 
+// ProviderPKCE is an OPTIONAL capability implemented by providers that require
+// their OWN PKCE (RFC 7636) verifier on the auth-server↔provider token-exchange
+// leg — distinct from the client↔auth-server PKCE the manager already runs
+// (StateData.CodeChallenge). X/Twitter mandates PKCE even for confidential
+// clients, but the base Provider interface's GetAuthURL/ExchangeCode carry no
+// verifier and ExchangeCode never sees `state`, so it can't recover a
+// state-keyed secret on its own.
+//
+// The manager owns the (Redis-backed) state record, so IT generates the
+// verifier, persists it in StateData.ProviderVerifier, embeds the derived
+// S256 challenge on the authorize URL via BuildAuthURLWithPKCE, and hands the
+// verifier back at callback time via ExchangeCodeWithVerifier. Keeping the
+// verifier in state (not a provider-local map) makes the flow multi-replica
+// safe: GetAuthURL and the callback may land on different replicas.
+type ProviderPKCE interface {
+	// BuildAuthURLWithPKCE returns the authorize URL carrying code_challenge
+	// (S256) alongside state + redirect_uri.
+	BuildAuthURLWithPKCE(state, redirectURL, codeChallenge string) string
+	// ExchangeCodeWithVerifier exchanges the authorization code, including the
+	// PKCE code_verifier (and, for confidential clients, HTTP Basic auth).
+	ExchangeCodeWithVerifier(ctx context.Context, code, redirectURL, codeVerifier string) (*TokenResponse, error)
+}
+
 // TokenResponse represents the response from token exchange
 type TokenResponse struct {
 	AccessToken  string

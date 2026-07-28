@@ -141,7 +141,11 @@ const (
 	AuthProviderGitHub    AuthProvider = "github"
 	AuthProviderFacebook  AuthProvider = "facebook"
 	AuthProviderLinkedIn  AuthProvider = "linkedin"
-	AuthProviderCustom    AuthProvider = "custom"
+	// AuthProviderX is "Login with X" (x.com / Twitter OAuth 2.0). X mandates
+	// PKCE even for confidential clients and returns no email for most apps —
+	// see internal/auth/sso/x.go.
+	AuthProviderX      AuthProvider = "x"
+	AuthProviderCustom AuthProvider = "custom"
 )
 
 // TokenType represents the type of authentication token
