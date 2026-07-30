@@ -58,56 +58,11 @@ COMMENT ON COLUMN apps.default_organization_id IS
 CREATE INDEX IF NOT EXISTS idx_apps_default_org ON apps(default_organization_id)
     WHERE deleted_at IS NULL AND default_organization_id IS NOT NULL;
 
--- 2. Seed the rw3iss organization. -----------------------------------
--- Owner is sourced from the existing admin user, matching the pattern
--- in 004_demo_organizations.up.sql (organizations.owner_id is NOT
--- NULL). When admin@ryanweiss.net isn't present (some non-demo
--- deployments), the SELECT returns 0 rows and the INSERT is a clean
--- no-op — operators on such deployments seed the org manually.
---
--- ON CONFLICT matches `organizations_slug_unique` which is a PARTIAL
--- unique index — Postgres requires the same predicate in the conflict
--- target (otherwise "no unique or exclusion constraint matching").
-INSERT INTO organizations (id, slug, name, description, owner_id, status, created_at, updated_at)
-SELECT
-    '00000000-0000-0000-0000-000000000001',
-    'rw3iss',
-    'rw3iss',
-    'Default rw3iss-internal organization. Houses all internal employee accounts.',
-    u.id,
-    'active',
-    NOW(),
-    NOW()
-FROM users u WHERE u.email = 'admin@ryanweiss.net'
-ON CONFLICT (slug) WHERE deleted_at IS NULL DO NOTHING;
-
--- 3. Seed the auth-client-demo app. ------------------------------------
--- Points at the rw3iss org, password-only, @ryanweiss.net domain.
-INSERT INTO apps (
-    id, code, name, description,
-    allowed_redirect_urls, service_codes,
-    auto_grant_on_signup,
-    allowed_email_domains, allowed_auth_methods, default_organization_id,
-    status, metadata, created_at, updated_at
-)
-VALUES (
-    '00000000-0000-0000-0000-000000000002',
-    'auth-client-demo',
-    'Auth Client Demo',
-    'Live demo + feature catalog for @rw3iss/auth-client. Internal rw3iss employees only; password authentication only.',
-    ARRAY['https://demo.auth.ryanweiss.net', 'https://demo.auth.ryanweiss.net/*', 'http://localhost:3010', 'http://localhost:3010/*'],
-    ARRAY['auth-client-demo'],
-    true,                                                             -- auto_grant_on_signup
-    ARRAY['ryanweiss.net'],                                            -- allowed_email_domains
-    ARRAY['password'],                                                -- allowed_auth_methods
-    (SELECT id FROM organizations WHERE slug = 'rw3iss'),           -- default_organization_id
-    'active',
-    '{}'::jsonb,
-    NOW(),
-    NOW()
-)
-ON CONFLICT (code) DO UPDATE SET
-    allowed_email_domains  = EXCLUDED.allowed_email_domains,
-    allowed_auth_methods   = EXCLUDED.allowed_auth_methods,
-    default_organization_id = EXCLUDED.default_organization_id,
-    updated_at             = NOW();
+-- 2. Demo seeds removed (2026-07). ------------------------------------
+-- This migration previously ALSO seeded the "rw3iss" organization
+-- (00000000-0000-0000-0000-000000000001) and the "auth-client-demo" app
+-- pointing at it. Those are demo/internal data that shouldn't exist in any
+-- deployment (CivicGate uses no default org). The seeds are removed at the
+-- source; existing DBs are cleaned by 024_remove_demo_seed_data. Only the
+-- policy COLUMNS above are retained (they're real schema). Real apps/orgs
+-- are registered by operators or the product, not seeded here.

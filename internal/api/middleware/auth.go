@@ -127,6 +127,15 @@ func (m *AuthMiddleware) RequirePermission(permissions ...string) func(http.Hand
 				return
 			}
 
+			// system_admin is a platform superuser (a strict superset of every scoped permission), so it
+			// bypasses per-permission checks — consistent with RequireOrgContext's system_admin bypass. This
+			// lets a system_admin operate the org self-service endpoints (members/invitations/roles/…) for any
+			// org without holding the org-scoped permission grants a member would.
+			if claims.IsSystemAdmin() {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			hasPermission := false
 			for _, perm := range permissions {
 				if claims.HasPermission(perm) {
@@ -152,6 +161,11 @@ func (m *AuthMiddleware) RequireAllPermissions(permissions ...string) func(http.
 			claims := GetClaims(r.Context())
 			if claims == nil {
 				writeError(w, errors.Unauthorized("Authentication required"))
+				return
+			}
+
+			if claims.IsSystemAdmin() { // superuser bypass (see RequirePermission)
+				next.ServeHTTP(w, r)
 				return
 			}
 
