@@ -173,7 +173,10 @@ func deref(p *string) string {
 	return *p
 }
 func derefSlice(p *[]string) []string {
-	if p == nil {
+	// A non-nil POINTER to a NIL SLICE is the trap here: pq.StringArray(nil) marshals to SQL NULL, which
+	// violates the NOT NULL on these columns. An omitted JSON field produces exactly that shape, so both
+	// the nil pointer and the nil slice must collapse to an empty array.
+	if p == nil || *p == nil {
 		return []string{}
 	}
 	return *p
