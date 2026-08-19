@@ -79,6 +79,7 @@ func SetupRoutes(
 
 	// Create handlers
 	authHandler := handlers.NewAuthHandler(authService)
+	availabilityHandler := handlers.NewAvailabilityHandler(authService)
 	userHandler := handlers.NewUserHandler(userService, roleService, authService)
 	orgHandler := handlers.NewOrganizationHandler(orgService, userService)
 	permHandler := handlers.NewPermissionHandler(permRepo)
@@ -120,6 +121,12 @@ func SetupRoutes(
 	// failed or the link expired. Always 200; service silently no-ops
 	// to avoid email enumeration.
 	router.HandleFunc("POST "+p+"/auth/verify-email/resend", authHandler.ResendVerificationEmail)
+
+	// PUBLIC signup availability (M16). Separate from /auth/check-email, which is a system_admin route:
+	// a registration form has no session, so it could not use that one and had no way to tell someone
+	// their address was taken until submit. Enumeration is mitigated in the handler (per-IP limit, bare
+	// boolean, "available" on throttle) — see availability_handler.go.
+	router.HandleFunc("POST "+p+"/auth/availability", availabilityHandler.CheckAvailability)
 
 	// SSO routes
 	router.HandleFunc("POST "+p+"/auth/sso/url", authHandler.GetSSOAuthURL)
