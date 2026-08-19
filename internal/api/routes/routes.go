@@ -3,13 +3,16 @@ package routes
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/redis/go-redis/v9"
 
 	"github.com/rw3iss/auth/internal/api/handlers"
 	"github.com/rw3iss/auth/internal/api/middleware"
 	"github.com/rw3iss/auth/internal/auth/jwt"
+	oidcauth "github.com/rw3iss/auth/internal/auth/oidc"
 	"github.com/rw3iss/auth/internal/background"
 	"github.com/rw3iss/auth/internal/cache"
 	"github.com/rw3iss/auth/internal/config"
@@ -65,6 +68,7 @@ func SetupRoutes(
 	jwtService *jwt.Service,
 	scheduler *background.Scheduler,
 	redisClient *cache.RedisClient,
+	oidcStore *oidcauth.Store,
 	tokenCache ...cache.TokenCache,
 ) http.Handler {
 	router := NewRouter()
@@ -80,6 +84,31 @@ func SetupRoutes(
 	// Create handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	availabilityHandler := handlers.NewAvailabilityHandler(authService)
+
+	// ── OIDC provider (migration 025) ────────────────────────────────────────────────────────────────
+	// The issuer MUST equal the base URL relying parties use, character for character: every OIDC client
+	// compares the `iss` claim against the URL it discovered from, and a mismatch is a hard failure.
+	issuer := os.Getenv("OIDC_ISSUER")
+	if issuer == "" {
+		issuer = "https://auth.civicgate.org"
+	}
+	loginURL := os.Getenv("OIDC_LOGIN_URL")
+	if loginURL == "" {
+		loginURL = "https://www.civicgate.org/login"
+	}
+	keyDir := os.Getenv("OIDC_KEY_DIR")
+	if keyDir == "" {
+		keyDir = os.Getenv("HOME") + "/.config/civicgate"
+	}
+	oidcKeys, oidcErr := oidcauth.NewKeyManager(keyDir)
+	var oidcHandler *handlers.OIDCHandler
+	if oidcErr != nil || oidcStore == nil {
+		// Fail LOUD in the log but keep the rest of the server serving: a signing-key problem must not
+		// take password login down with it.
+		slog.Error("oidc: signing key unavailable — OIDC endpoints disabled", "error", oidcErr)
+	} else {
+		oidcHandler = handlers.NewOIDCHandler(oidcKeys, oidcStore, authService, issuer, loginURL)
+	}
 	userHandler := handlers.NewUserHandler(userService, roleService, authService)
 	orgHandler := handlers.NewOrganizationHandler(orgService, userService)
 	permHandler := handlers.NewPermissionHandler(permRepo)
@@ -150,7 +179,27 @@ func SetupRoutes(
 	// via client_id + client_secret in the body. Mints service-principal
 	// access tokens for M2M consumers (cron, batch, CI runners, downstream
 	// services that need to call this server's admin surface).
-	router.HandleFunc("POST "+p+"/oauth/token", oauthHandler.Token)
+	// One token URL for every grant, as discovery advertises: the OIDC handler takes authorization_code
+	// and hands anything else (client_credentials) to the original handler.
+	router.HandleFunc("POST "+p+"/oauth/token", func(w http.ResponseWriter, r *http.Request) {
+		if oidcHandler != nil {
+			oidcHandler.Token(w, r, oauthHandler.Token)
+			return
+		}
+		oauthHandler.Token(w, r)
+	})
+
+	if oidcHandler != nil {
+		// Discovery + JWKS live at the ROOT, not under the /api/v1 prefix — the spec fixes these paths
+		// relative to the issuer, and a client will not find them anywhere else.
+		router.HandleFunc("GET /.well-known/openid-configuration", oidcHandler.Discovery)
+		router.HandleFunc("GET /.well-known/jwks.json", oidcHandler.JWKS)
+		// Optional auth: an authenticated browser proceeds, an anonymous one is bounced to login.
+		router.Handle("GET "+p+"/oauth/authorize", authMw.OptionalAuth(http.HandlerFunc(oidcHandler.Authorize)))
+		router.Handle("GET "+p+"/oauth/userinfo", authMw.Authenticate(http.HandlerFunc(oidcHandler.UserInfo)))
+		router.Handle("POST "+p+"/oauth/userinfo", authMw.Authenticate(http.HandlerFunc(oidcHandler.UserInfo)))
+		router.HandleFunc("GET "+p+"/oauth/logout", oidcHandler.EndSession)
+	}
 
 	// Protected auth routes
 	router.Handle("GET "+p+"/auth/me", authMw.Authenticate(http.HandlerFunc(authHandler.GetMe)))

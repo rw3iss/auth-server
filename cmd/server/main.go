@@ -23,6 +23,7 @@ import (
 	"github.com/rw3iss/auth/internal/config"
 	"github.com/rw3iss/auth/internal/email"
 	"github.com/rw3iss/auth/internal/logging"
+	oidcauth "github.com/rw3iss/auth/internal/auth/oidc"
 	"github.com/rw3iss/auth/internal/repository/postgres"
 	"github.com/rw3iss/auth/internal/service"
 	auth "github.com/rw3iss/auth/internal/service/auth"
@@ -315,6 +316,7 @@ func main() {
 		jwtService,
 		scheduler,
 		redisClient,
+		oidcauth.NewStore(db.DB),
 		tokenCache,
 	)
 
