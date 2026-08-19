@@ -199,16 +199,6 @@ func SetupRoutes(
 		router.Handle("GET "+p+"/oauth/userinfo", authMw.Authenticate(http.HandlerFunc(oidcHandler.UserInfo)))
 		router.Handle("POST "+p+"/oauth/userinfo", authMw.Authenticate(http.HandlerFunc(oidcHandler.UserInfo)))
 		router.HandleFunc("GET "+p+"/oauth/logout", oidcHandler.EndSession)
-
-		// Relying-party administration. Behind the admin chain: registering a redirect_uri is functionally
-		// granting an application the ability to receive other people's sessions, so it is an
-		// administrative capability, never self-service.
-		oidcAdmin := handlers.NewOIDCAdminHandler(oidcStore)
-		router.Handle("GET "+p+"/admin/oauth/clients", adminChain(http.HandlerFunc(oidcAdmin.List)))
-		router.Handle("POST "+p+"/admin/oauth/clients", adminChain(http.HandlerFunc(oidcAdmin.Create)))
-		router.Handle("PATCH "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Update)))
-		router.Handle("POST "+p+"/admin/oauth/clients/{clientId}/rotate-secret", adminChain(http.HandlerFunc(oidcAdmin.RotateSecret)))
-		router.Handle("DELETE "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Delete)))
 	}
 
 	// Protected auth routes
@@ -247,6 +237,19 @@ func SetupRoutes(
 	// middleware gate is fully effective.
 	adminChain := func(h http.Handler) http.Handler {
 		return authMw.Authenticate(authMw.RequirePlatformAdmin(h))
+	}
+
+	if oidcHandler != nil {
+
+			// Relying-party administration. Behind the admin chain: registering a redirect_uri is functionally
+			// granting an application the ability to receive other people's sessions, so it is an
+			// administrative capability, never self-service.
+			oidcAdmin := handlers.NewOIDCAdminHandler(oidcStore)
+			router.Handle("GET "+p+"/admin/oauth/clients", adminChain(http.HandlerFunc(oidcAdmin.List)))
+			router.Handle("POST "+p+"/admin/oauth/clients", adminChain(http.HandlerFunc(oidcAdmin.Create)))
+			router.Handle("PATCH "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Update)))
+			router.Handle("POST "+p+"/admin/oauth/clients/{clientId}/rotate-secret", adminChain(http.HandlerFunc(oidcAdmin.RotateSecret)))
+			router.Handle("DELETE "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Delete)))
 	}
 	systemAdminChain := func(h http.Handler) http.Handler {
 		return authMw.Authenticate(authMw.RequireSystemAdmin(h))
