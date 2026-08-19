@@ -117,7 +117,13 @@ func (h *OIDCAdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	secret, err := h.store.CreateClient(r.Context(), req.ClientID, in, req.Public)
 	if err != nil {
-		writeError(w, errors.InvalidInput("client_id", "Could not create client — the id may already exist"))
+		// Report the actual cause. The previous blanket "the id may already exist" was a guess, and it
+		// sent an operator hunting for a duplicate that was not there when the real fault was a bad column.
+		if strings.Contains(err.Error(), "duplicate key") {
+			writeError(w, errors.InvalidInput("client_id", "That client_id is already registered"))
+			return
+		}
+		writeError(w, errors.InvalidInput("client_id", "Could not create client: "+err.Error()))
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
