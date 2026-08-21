@@ -123,9 +123,13 @@ func (r *PermissionRepository) SyncForService(
 			return fmt.Errorf("prune service %q: %w", service, err)
 		}
 	} else {
+		// pq.StringArray, NOT a bare []string: lib/pq cannot convert a raw Go slice to a SQL array, so
+		// this prune returned "unsupported type []string" for EVERY registration that declared at least
+		// one permission. The empty-list branch above has no array parameter, which is why the failure
+		// only ever showed up on the path that actually matters.
 		if _, err := tx.ExecContext(ctx,
 			`DELETE FROM permissions WHERE service = $1 AND code != ALL($2)`,
-			service, codes,
+			service, pq.StringArray(codes),
 		); err != nil {
 			return fmt.Errorf("prune service %q: %w", service, err)
 		}
