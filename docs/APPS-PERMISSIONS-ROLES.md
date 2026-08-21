@@ -117,44 +117,56 @@ is not — and if it were flagged, any org admin could grant it to themselves.
 
 ## 4. Create a role that carries them
 
-> ⚠️ **There is currently no HTTP endpoint to create a role.** The server exposes
-> `GET /admin/roles` and the two *assignment* endpoints below, but role creation lives only in
-> `RoleService.CreateCustomRole` with no route in front of it. Until one is added, create roles in SQL
-> — via a migration, so it is reproducible.
+```http
+POST /api/v1/admin/roles          (system_admin)
+Content-Type: application/json
 
-```sql
--- A system role: platform-wide, not tied to an organization.
-INSERT INTO roles (code, name, description, type, level, is_org_role)
-VALUES ('philly_editor', 'Philadelphia Editor', 'Publishes city reports', 'custom', 50, false);
-
--- Attach permissions. role_permissions links by ID, so the (service, code) pair
--- resolves to exactly one row and cannot pick up another service's same-named permission.
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-  FROM roles r, permissions p
- WHERE r.code = 'philly_editor'
-   AND p.service = 'philly-civics'
-   AND p.code IN ('reports.publish');
+{
+  "code": "philly_editor",
+  "name": "Philadelphia Editor",
+  "description": "Publishes city reports",
+  "level": 50,
+  "organization_id": null,
+  "permissions": [
+    { "service": "philly-civics", "code": "reports.publish" }
+  ]
+}
 ```
 
-**Always qualify by `p.service`.** Without it you may attach another service's identically-named
-permission — which is precisely what the per-service uniqueness makes possible.
+Returns the created role with its permissions hydrated.
+
+**Permissions are referenced as `{service, code}`, never a bare code.** Codes are unique per service
+(migration 026), so a bare code can match several rows — and silently attaching the wrong service's
+permission is exactly the failure this signature prevents.
+
+**An unresolved permission fails the whole request.** A role created with half its permissions is harder
+to notice, and more dangerous, than one that was refused.
+
+**`system_admin` is reserved.** It bypasses every permission check, so allowing it to be created would
+make role creation a privilege-escalation path.
 
 ### System role vs organization role
 
+Omit `organization_id` for a platform-wide role; set it to scope the role to one organization.
+
 | | System role | Organization role |
 |---|---|---|
-| `organization_id` | `NULL` | the org's id |
+| `organization_id` | `null` | the org's id |
 | `is_org_role` | `false` | `true` |
 | Scope | Platform-wide | That one organization |
 | Uniqueness | `code` unique where org is null | unique per `(code, organization_id)` |
 
 Two orgs can each have an `editor` role with different permissions and never collide.
 
-`system_admin` is special: a platform superuser that **bypasses permission checks entirely**. Do not use
-it as a convenient "admin" role for an app — it grants everything, everywhere.
+### Editing and removing
 
----
+```http
+PUT    /api/v1/admin/roles/{roleId}     # supplying `permissions` REPLACES the set; omit to leave it alone
+DELETE /api/v1/admin/roles/{roleId}     # revoked from everyone holding it, on their next token issue
+```
+
+All three are **`system_admin` only** — a role is a bundle of permissions, so being able to mint one is
+equivalent to being able to grant them.
 
 ## 5. Grant a user into the app
 
@@ -266,12 +278,14 @@ curl -X POST $API/auth/login -H 'Content-Type: application/json' \
 
 | Gap | Impact | Workaround |
 |---|---|---|
-| No role-creation endpoint | Custom roles need SQL | `RoleService.CreateCustomRole` exists; it needs a route |
-| Token permissions not app-filtered | A multi-app user carries the union | Check only your own codes |
-| Permission claims are unqualified | Two services' same-named codes are indistinguishable in a token | Prefix codes with your service |
+| Token permissions not app-filtered | A multi-app user carries the union of all their permissions in every token | Check only for the codes your service owns |
+| Permission claims are unqualified | Two services' same-named codes are indistinguishable in a token | Prefix codes with your service name |
 
-The first is the one that matters for onboarding a portal — everything else in this document works over
-HTTP, and role creation is the single step that drops to SQL.
+Both are consequences of the token carrying bare code strings. Neither is exploitable today — a role grant
+links to one specific permission row — and the intended fix for both is to filter permissions at issue
+time against the app's `service_codes`.
+
+**Every step in this document now works over HTTP.** Role creation was the last one that required SQL.
 
 ---
 
@@ -282,7 +296,7 @@ HTTP, and role creation is the single step that drops to SQL.
 - **009** — `org_assignable`; the gate on what an org admin may grant.
 - **013 / 015** — per-app registration policy.
 - **017** — namespaced read pools.
-- **026** — permission codes unique per `(service, code)`. Previously a second service declaring an
+- **026** — permission codes unique per `(service, code)`, plus `POST/PUT/DELETE /admin/roles`. Previously a second service declaring an
   existing code silently took ownership of the row, and the original owner's next sync deleted it. Fixed
   alongside a prune bug (`[]string` passed where `pq.StringArray` was required) that had made *every*
   registration with a non-empty list fail.
