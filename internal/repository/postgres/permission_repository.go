@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"strings"
 
 	"github.com/rw3iss/auth/internal/domain"
@@ -51,9 +52,9 @@ func (r *PermissionRepository) Create(ctx context.Context, permission *domain.Pe
 //
 // Declarative: the caller passes the full set of permissions the service claims
 // to own. The repository:
-//   1. Upserts every declared permission (INSERT ... ON CONFLICT (code) DO UPDATE).
-//   2. Deletes rows where service = <service> AND code NOT IN (declared codes)
-//      so removals in the manifest propagate.
+//  1. Upserts every declared permission (INSERT ... ON CONFLICT (service, code) DO UPDATE).
+//  2. Deletes rows where service = <service> AND code NOT IN (declared codes)
+//     so removals in the manifest propagate.
 //
 // The global UNIQUE(code) constraint protects against two services claiming the
 // same code — the second INSERT will update the first one's row (last writer
@@ -84,18 +85,19 @@ func (r *PermissionRepository) SyncForService(
 	// AUDIT C3: SyncForService now propagates org_assignable. Services that
 	// declare a permission MUST set the flag deliberately (default false at
 	// the column level keeps unflagged permissions reserved to platform
-	// admins). ON CONFLICT preserves the latest service-declared value.
+	// admins). Since migration 026 the conflict target is (service, code): a code belongs to ONE
+	// service, so a second service declaring the same name creates its own row instead of hijacking
+	// (and later deleting) the first one's.
 	upsert := `
 		INSERT INTO permissions (
 			id, code, name, description, resource, action, category, service, org_assignable, metadata, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT (code) DO UPDATE SET
+		ON CONFLICT (service, code) DO UPDATE SET
 			name           = EXCLUDED.name,
 			description    = EXCLUDED.description,
 			resource       = EXCLUDED.resource,
 			action         = EXCLUDED.action,
 			category       = EXCLUDED.category,
-			service        = EXCLUDED.service,
 			org_assignable = EXCLUDED.org_assignable,
 			metadata       = EXCLUDED.metadata,
 			updated_at     = EXCLUDED.updated_at`
@@ -153,11 +155,16 @@ func (r *PermissionRepository) GetByID(ctx context.Context, id types.ID) (*domai
 	return permission, nil
 }
 
-// GetByCode retrieves a permission by code
+// GetByCode retrieves a permission by code.
+//
+// AMBIGUOUS SINCE MIGRATION 026: codes are unique per SERVICE, not globally, so two services may both
+// define `reports.publish`. This returns the first match by service name and is kept only for callers
+// that genuinely operate on the whole catalog. Anything acting on behalf of one service must use
+// GetByServiceCode / GetByCodesForServices, or it will silently act on another service's permission.
 func (r *PermissionRepository) GetByCode(ctx context.Context, code string) (*domain.Permission, error) {
 	query := `
 		SELECT id, code, name, description, resource, action, category, service, org_assignable, metadata, created_at, updated_at
-		FROM permissions WHERE code = $1`
+		FROM permissions WHERE code = $1 ORDER BY service LIMIT 1`
 
 	permission := &domain.Permission{}
 	q := getQuerier(ctx, r.db)
@@ -317,4 +324,35 @@ func (r *PermissionRepository) GetByCodes(ctx context.Context, codes []string) (
 		return nil, fmt.Errorf("failed to get permissions by codes: %w", err)
 	}
 	return permissions, nil
+}
+
+// GetByServiceCode retrieves ONE service's permission by code. This is the correct lookup for anything
+// acting on behalf of a service — codes are unique per (service, code) since migration 026, so the
+// unscoped GetByCode can return a different service's row of the same name.
+func (r *PermissionRepository) GetByServiceCode(ctx context.Context, service, code string) (*domain.Permission, error) {
+	var p domain.Permission
+	err := r.db.GetContext(ctx, &p, `
+		SELECT id, code, name, description, resource, action, category, service, org_assignable,
+		       metadata, created_at, updated_at
+		FROM permissions WHERE service = $1 AND code = $2`, service, code)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// GetByCodesForServices resolves codes within a set of services — the shape a token issuer needs, since
+// an app declares the services it consumes in `apps.service_codes`. Passing no services falls back to the
+// unscoped lookup so existing callers keep working.
+func (r *PermissionRepository) GetByCodesForServices(ctx context.Context, codes, services []string) ([]*domain.Permission, error) {
+	if len(services) == 0 {
+		return r.GetByCodes(ctx, codes)
+	}
+	var out []*domain.Permission
+	err := r.db.SelectContext(ctx, &out, `
+		SELECT id, code, name, description, resource, action, category, service, org_assignable,
+		       metadata, created_at, updated_at
+		FROM permissions WHERE code = ANY($1) AND service = ANY($2)`,
+		pq.StringArray(codes), pq.StringArray(services))
+	return out, err
 }
