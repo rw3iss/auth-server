@@ -267,6 +267,13 @@ func SetupRoutes(
 	// verbatim; the cutover path for onboarding an app's existing users.
 	router.Handle("POST "+p+"/admin/users/bulk-import", systemAdminChain(http.HandlerFunc(authHandler.BulkImportUsers)))
 	router.Handle("GET "+p+"/admin/roles", adminChain(http.HandlerFunc(userHandler.ListSystemRoles)))
+	// Role CREATION — previously the one onboarding step with no HTTP route, forcing operators into SQL.
+	// system_admin only: a role is a bundle of permissions, so being able to mint one is equivalent to
+	// being able to grant them.
+	roleAdmin := handlers.NewRoleAdminHandler(roleService)
+	router.Handle("POST "+p+"/admin/roles", systemAdminChain(http.HandlerFunc(roleAdmin.Create)))
+	router.Handle("PUT "+p+"/admin/roles/{roleId}", systemAdminChain(http.HandlerFunc(roleAdmin.Update)))
+	router.Handle("DELETE "+p+"/admin/roles/{roleId}", systemAdminChain(http.HandlerFunc(roleAdmin.Delete)))
 	router.Handle("GET "+p+"/admin/users/{userId}/roles", adminChain(http.HandlerFunc(userHandler.GetUserRoles)))
 	router.Handle("PUT "+p+"/admin/users/{userId}/roles", adminChain(http.HandlerFunc(userHandler.SetUserRoles)))
 	router.Handle("GET "+p+"/admin/users/{userId}/organizations", adminChain(http.HandlerFunc(userHandler.GetUserOrganizations)))

@@ -123,9 +123,9 @@ type M2MClientRepository interface {
 
 // UserFilter defines filtering options for user listing
 type UserFilter struct {
-	Status         *types.UserStatus
-	EmailVerified  *bool
-	AuthProvider   *types.AuthProvider
+	Status        *types.UserStatus
+	EmailVerified *bool
+	AuthProvider  *types.AuthProvider
 	// OrganizationID restricts to active members of one organization.
 	OrganizationID *types.ID
 	// AppID restricts to users with an active user_apps membership in
@@ -245,6 +245,10 @@ type PermissionRepository interface {
 	// Bulk operations
 	GetByIDs(ctx context.Context, ids []types.ID) ([]*domain.Permission, error)
 	GetByCodes(ctx context.Context, codes []string) ([]*domain.Permission, error)
+	// Service-scoped lookups. Codes are unique per (service, code) since migration 026, so anything
+	// acting on behalf of one service must resolve through these rather than the ambiguous GetByCode.
+	GetByServiceCode(ctx context.Context, service, code string) (*domain.Permission, error)
+	GetByCodesForServices(ctx context.Context, codes, services []string) ([]*domain.Permission, error)
 
 	// AllOrgAssignable returns IDs from the input set that are NOT
 	// org_assignable. Empty result means every supplied ID is safe for an
@@ -257,9 +261,9 @@ type PermissionRepository interface {
 
 // PermissionFilter defines filtering options for permission listing
 type PermissionFilter struct {
-	Resource   *string
-	Action     *string
-	Category   *string
+	Resource *string
+	Action   *string
+	Category *string
 	// OrgAssignable, when non-nil, narrows to permissions where the flag
 	// matches (AUDIT C3). Used by the org-self-service surface to list the
 	// permission catalog an org admin is allowed to grant.

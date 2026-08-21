@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/rw3iss/auth/internal/domain"
 	"github.com/rw3iss/auth/internal/repository"
@@ -568,4 +569,50 @@ func derefPermissions(ptrs []*domain.Permission) []domain.Permission {
 		result[i] = *p
 	}
 	return result
+}
+
+// CreateSystemRole creates a PLATFORM-WIDE role (organization_id IS NULL).
+//
+// Separate from CreateCustomRole, which requires an organization and always sets is_org_role. A system
+// role is not owned by any tenant, so it cannot be created through the org path — and conflating the two
+// would let an org admin mint platform-wide roles, which is exactly the escalation `org_assignable`
+// exists to prevent on the permission side.
+func (s *RoleService) CreateSystemRole(ctx context.Context, input CreateRoleInput) (*domain.Role, error) {
+	role := domain.NewRole(input.Code, input.Name, input.Description, models.RoleTypeCustom, false)
+	role.Level = input.Level
+	if err := s.roleRepo.Create(ctx, role); err != nil {
+		return nil, err
+	}
+	if len(input.PermissionIDs) > 0 {
+		if err := s.roleRepo.SetPermissions(ctx, role.ID, input.PermissionIDs); err != nil {
+			return nil, err
+		}
+	}
+	permissions, _ := s.roleRepo.GetPermissions(ctx, role.ID)
+	role.Permissions = derefPermissions(permissions)
+	return role, nil
+}
+
+// ResolvePermissionRefs turns service-qualified references into ids.
+//
+// Callers supply {service, code} rather than a bare code because codes are unique per SERVICE since
+// migration 026 — a bare code can match several rows, and silently attaching the wrong service's
+// permission is the failure this signature makes impossible. An unresolved reference is an ERROR, not a
+// skip: a role created with half its permissions is worse than one that failed loudly.
+func (s *RoleService) ResolvePermissionRefs(ctx context.Context, refs []PermissionRef) ([]types.ID, error) {
+	ids := make([]types.ID, 0, len(refs))
+	for _, ref := range refs {
+		p, err := s.permRepo.GetByServiceCode(ctx, ref.Service, ref.Code)
+		if err != nil || p == nil {
+			return nil, fmt.Errorf("unknown permission %q in service %q", ref.Code, ref.Service)
+		}
+		ids = append(ids, p.ID)
+	}
+	return ids, nil
+}
+
+// PermissionRef identifies one permission unambiguously.
+type PermissionRef struct {
+	Service string `json:"service"`
+	Code    string `json:"code"`
 }
