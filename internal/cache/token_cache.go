@@ -21,6 +21,12 @@ type CachedClaims struct {
 	OrganizationSlug string   `json:"org_slug,omitempty"`
 	Roles            []string `json:"roles"`
 	Permissions      []string `json:"permissions"`
+	// PermScopes + AppCode must be cached alongside the flat list. The validation cache REBUILDS
+	// TokenClaims from this struct, so any claim missing here silently disappears on a cache HIT —
+	// which would make HasServicePermission succeed on a cold cache and fail on a warm one. An
+	// intermittent authorization failure is far worse to diagnose than a consistent one.
+	PermScopes map[string][]string `json:"perm_scopes,omitempty"`
+	AppCode    string              `json:"app_code,omitempty"`
 	TokenType        string   `json:"token_type"`
 	SessionID        string   `json:"session_id,omitempty"`
 	ExpiresAt        int64    `json:"exp"`

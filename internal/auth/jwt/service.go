@@ -288,6 +288,12 @@ func (s *Service) GenerateTokenPair(ctx context.Context, input GenerateTokenInpu
 	// when Redis is unavailable (TokenCache is the NoOp impl).
 	tokenVersion, _ := s.cache.GetUserTokenVersion(ctx, input.User.ID.String())
 
+	// Scope permissions to the token's app BEFORE building the claims: a token issued for one app must
+	// not advertise authority granted through another. Derived from input.Roles (whose Permissions are
+	// hydrated) rather than the pre-flattened input.Permissions, because only the role objects still
+	// carry each permission's owning service.
+	scopedPerms, permScopes := scopePermissionsToApp(input.Roles, input.App)
+
 	accessClaims := &TokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.cfg.Issuer,
@@ -307,7 +313,7 @@ func (s *Service) GenerateTokenPair(ctx context.Context, input GenerateTokenInpu
 		OrganizationSlug: orgSlug,
 		OrganizationName: orgName,
 		Roles:            roleCodes,
-		Permissions:      input.Permissions,
+		Permissions:      scopedPerms,
 		TokenType:        types.TokenTypeAccess,
 		SessionID:        &sessionID,
 		RememberMe:       input.RememberMe,
@@ -325,6 +331,9 @@ func (s *Service) GenerateTokenPair(ctx context.Context, input GenerateTokenInpu
 		appID := input.App.ID
 		accessClaims.AppID = &appID
 		accessClaims.AppCode = input.App.Code
+	}
+	if len(permScopes) > 0 {
+		accessClaims.PermScopes = permScopes
 	}
 	// AUDIT C7: impersonation stamps. When set, every action under this
 	// token's session is audit-traceable back to the impersonating admin
@@ -538,6 +547,8 @@ func (s *Service) ValidateAccessToken(tokenString string) (*TokenClaims, error) 
 					OrganizationSlug: cached.OrganizationSlug,
 					Roles:            cached.Roles,
 					Permissions:      cached.Permissions,
+					PermScopes:       cached.PermScopes,
+					AppCode:          cached.AppCode,
 					TokenType:        types.TokenType(cached.TokenType),
 					TokenVersion:     cached.TokenVersion,
 				}
@@ -596,6 +607,8 @@ func (s *Service) ValidateAccessToken(tokenString string) (*TokenClaims, error) 
 			OrganizationSlug: claims.OrganizationSlug,
 			Roles:            claims.Roles,
 			Permissions:      claims.Permissions,
+			PermScopes:       claims.PermScopes,
+			AppCode:          claims.AppCode,
 			TokenType:        string(claims.TokenType),
 			ExpiresAt:        claims.ExpiresAt.Time.Unix(),
 			TokenVersion:     claims.TokenVersion,

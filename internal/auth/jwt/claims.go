@@ -24,7 +24,11 @@ type TokenClaims struct {
 
 	// Role and permission information
 	Roles       []string `json:"roles"`       // Role codes
-	Permissions []string `json:"permissions"` // Permission codes
+	Permissions []string `json:"permissions"` // Permission codes, scoped to this token's app
+	// PermScopes groups the same codes by OWNING SERVICE. Codes are unique per (service, code) since
+	// migration 026, so two services may define the same name and the flat list above cannot tell them
+	// apart; this can. Omitted when empty to keep the common-case token small.
+	PermScopes map[string][]string `json:"perm_scopes,omitempty"`
 
 	// Token metadata
 	TokenType    types.TokenType `json:"token_type"`
@@ -136,6 +140,24 @@ func (c *TokenClaims) HasAllRoles(roleCodes ...string) bool {
 }
 
 // HasPermission checks if the token has a specific permission
+// HasServicePermission is the UNAMBIGUOUS check: it asks whether a specific SERVICE granted this code.
+// Prefer it over HasPermission anywhere two services could plausibly define the same name — with
+// per-service uniqueness that is now allowed, so a bare-code check can be satisfied by someone else's
+// permission of the same name.
+func (c *TokenClaims) HasServicePermission(service, permissionCode string) bool {
+	for _, p := range c.PermScopes[service] {
+		if p == permissionCode {
+			return true
+		}
+	}
+	return false
+}
+
+// ServicePermissions returns everything one service granted in this token.
+func (c *TokenClaims) ServicePermissions(service string) []string { return c.PermScopes[service] }
+
+// HasPermission checks a bare code across every service in the token. Kept for compatibility and fine
+// when your codes are service-prefixed; use HasServicePermission when they are not.
 func (c *TokenClaims) HasPermission(permissionCode string) bool {
 	for _, p := range c.Permissions {
 		if p == permissionCode {
