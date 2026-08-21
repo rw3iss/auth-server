@@ -298,6 +298,7 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult
 		roleCodes[i] = role.Code
 	}
 	permissions = s.collectPermissions(ctx, roles)
+	permissionRecords := s.collectPermissionRecords(ctx, roles)
 
 	// AUDIT 8.3: app authorization. App *identity* was resolved above —
 	// before the user lookup — so the lookup could be scoped to the app's
@@ -330,15 +331,16 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult
 
 	// Generate tokens
 	tokenInput := jwt.GenerateTokenInput{
-		User:         user,
-		Organization: org,
-		App:          resolvedApp,
-		Roles:        roles,
-		Permissions:  permissions,
-		RememberMe:   input.RememberMe,
-		DeviceInfo:   input.DeviceInfo,
-		IPAddress:    input.IPAddress,
-		UserAgent:    input.UserAgent,
+		User:              user,
+		Organization:      org,
+		App:               resolvedApp,
+		Roles:             roles,
+		Permissions:       permissions,
+		PermissionRecords: permissionRecords,
+		RememberMe:        input.RememberMe,
+		DeviceInfo:        input.DeviceInfo,
+		IPAddress:         input.IPAddress,
+		UserAgent:         input.UserAgent,
 	}
 
 	tokenPair, err := s.jwtService.GenerateTokenPair(ctx, tokenInput)
@@ -361,11 +363,11 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult
 	audit.Record(ctx, auditEvt)
 
 	return &LoginResult{
-		User:         user,
-		Organization: org,
-		TokenPair:    tokenPair,
-		Roles:        roleCodes,
-		Permissions:  permissions,
+		User:              user,
+		Organization:      org,
+		TokenPair:         tokenPair,
+		Roles:             roleCodes,
+		Permissions:       permissions,
 	}, nil
 }
 
@@ -436,6 +438,7 @@ func (s *AuthService) RefreshTokens(ctx context.Context, refreshToken string, or
 
 	// AUDIT 4.1: batched permission fetch on the refresh path too.
 	permissions = s.collectPermissions(ctx, roles)
+	permissionRecords := s.collectPermissionRecords(ctx, roles)
 
 	// Preserve app scope across refresh — the refresh token carries the
 	// app_code it was minted under, so the new access token keeps its
@@ -448,12 +451,13 @@ func (s *AuthService) RefreshTokens(ctx context.Context, refreshToken string, or
 	}
 
 	tokenInput := jwt.GenerateTokenInput{
-		User:         user,
-		Organization: org,
-		App:          app,
-		Roles:        roles,
-		Permissions:  permissions,
-		RememberMe:   claims.RememberMe,
+		User:              user,
+		Organization:      org,
+		App:               app,
+		Roles:             roles,
+		Permissions:       permissions,
+		PermissionRecords: permissionRecords,
+		RememberMe:        claims.RememberMe,
 	}
 
 	return s.jwtService.RefreshTokens(ctx, refreshToken, tokenInput)

@@ -30,7 +30,7 @@ const coreService = "core"
 // FAIL-CLOSED ON AN UNSCOPED TOKEN. A nil app (base-user mode) yields `core` permissions only. The
 // alternative — passing everything through — would make "no app" the widest possible token, which is
 // exactly backwards.
-func scopePermissionsToApp(roles []*domain.Role, app *domain.App) (flat []string, byService map[string][]string) {
+func scopePermissionsToApp(perms []*domain.Permission, app *domain.App) (flat []string, byService map[string][]string) {
 	allowed := map[string]bool{coreService: true}
 	if app != nil {
 		for _, sc := range app.ServiceCodes {
@@ -42,11 +42,11 @@ func scopePermissionsToApp(roles []*domain.Role, app *domain.App) (flat []string
 
 	byService = map[string][]string{}
 	seen := map[string]bool{}
-	for _, r := range roles {
-		if r == nil {
+	for _, p := range perms {
+		if p == nil {
 			continue
 		}
-		for _, p := range r.Permissions {
+		{
 			svc := p.Service
 			if svc == "" {
 				// A permission predating migration 005 has no owner recorded. Treat it as core rather

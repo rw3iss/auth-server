@@ -7,24 +7,21 @@ import (
 	"github.com/rw3iss/auth/pkg/shared/models"
 )
 
-func role(perms ...domain.Permission) *domain.Role {
-	return &domain.Role{Permissions: perms}
-}
-func perm(service, code string) domain.Permission {
-	return domain.Permission{Permission: models.Permission{Code: code, Service: service}}
+func perm(service, code string) *domain.Permission {
+	return &domain.Permission{Permission: models.Permission{Code: code, Service: service}}
 }
 
 func TestScopePermissionsToApp(t *testing.T) {
-	roles := []*domain.Role{role(
+	perms := []*domain.Permission{
 		perm("philly-civics", "reports.publish"),
 		perm("pa-votes", "ballots.certify"),
 		perm("core", "users:read"),
 		perm("", "legacy:thing"), // pre-005 row with no owner recorded
-	)}
+	}
 
 	t.Run("only the app's own services plus core", func(t *testing.T) {
 		app := &domain.App{Code: "philly-civics", ServiceCodes: []string{"philly-civics"}}
-		flat, by := scopePermissionsToApp(roles, app)
+		flat, by := scopePermissionsToApp(perms, app)
 
 		if has(flat, "ballots.certify") {
 			t.Fatalf("a permission from another app's service leaked into the token: %v", flat)
@@ -43,14 +40,14 @@ func TestScopePermissionsToApp(t *testing.T) {
 
 	t.Run("a shared service is included when the app declares it", func(t *testing.T) {
 		app := &domain.App{Code: "philly-civics", ServiceCodes: []string{"philly-civics", "pa-votes"}}
-		flat, _ := scopePermissionsToApp(roles, app)
+		flat, _ := scopePermissionsToApp(perms, app)
 		if !has(flat, "ballots.certify") {
 			t.Fatalf("a declared service's permission must be included, got %v", flat)
 		}
 	})
 
 	t.Run("no app fails CLOSED to core only", func(t *testing.T) {
-		flat, _ := scopePermissionsToApp(roles, nil)
+		flat, _ := scopePermissionsToApp(perms, nil)
 		if has(flat, "reports.publish") || has(flat, "ballots.certify") {
 			t.Fatalf("an unscoped token must not carry app permissions, got %v", flat)
 		}
@@ -60,10 +57,10 @@ func TestScopePermissionsToApp(t *testing.T) {
 	})
 
 	t.Run("same code in two services stays distinguishable", func(t *testing.T) {
-		rs := []*domain.Role{role(
+		rs := []*domain.Permission{
 			perm("philly-civics", "reports.publish"),
 			perm("pa-votes", "reports.publish"),
-		)}
+		}
 		app := &domain.App{ServiceCodes: []string{"philly-civics", "pa-votes"}}
 		flat, by := scopePermissionsToApp(rs, app)
 		if len(flat) != 1 {

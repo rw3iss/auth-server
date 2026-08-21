@@ -234,6 +234,11 @@ type GenerateTokenInput struct {
 	DeviceInfo   string
 	IPAddress    string
 	UserAgent    string
+	// PermissionRecords carries the full permission objects, so the token can be scoped to the app by
+	// each permission's owning service. Callers that supply only codes leave this nil, and the token
+	// keeps every code it was given — a caller that cannot express services must not silently lose them.
+	PermissionRecords []*domain.Permission
+
 	// App, when non-nil, scopes the issued token to a consuming app.
 	// AUDIT 8.3 — the app_id + app_code claims appear on access tokens.
 	// Nil means "base-user mode" (AUTH_ALLOW_BASE_USER_LOGIN); the
@@ -292,7 +297,12 @@ func (s *Service) GenerateTokenPair(ctx context.Context, input GenerateTokenInpu
 	// not advertise authority granted through another. Derived from input.Roles (whose Permissions are
 	// hydrated) rather than the pre-flattened input.Permissions, because only the role objects still
 	// carry each permission's owning service.
-	scopedPerms, permScopes := scopePermissionsToApp(input.Roles, input.App)
+	scopedPerms, permScopes := scopePermissionsToApp(input.PermissionRecords, input.App)
+	if input.PermissionRecords == nil {
+		// No service information available — keep what the caller gave us rather than issuing an empty
+		// token. Scoping is a narrowing of a known set, never an excuse to drop an unknown one.
+		scopedPerms, permScopes = input.Permissions, nil
+	}
 
 	accessClaims := &TokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{

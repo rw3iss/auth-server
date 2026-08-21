@@ -207,6 +207,24 @@ func (s *AuthService) hashPassword(password string) (string, error) {
 // collectPermissions returns the unique permission codes across the given
 // roles in a single repo round-trip. Replaces the per-role GetPermissions
 // loop that ran 3-5 queries per login (AUDIT 4.1).
+// collectPermissionRecords returns the full permission objects. The token layer needs each permission's
+// owning SERVICE to scope the token to its app; collectPermissions throws that away, which silently
+// emptied tokens when the scoping was first added.
+func (s *AuthService) collectPermissionRecords(ctx context.Context, roles []*domain.Role) []*domain.Permission {
+	if len(roles) == 0 {
+		return nil
+	}
+	roleIDs := make([]types.ID, len(roles))
+	for i, r := range roles {
+		roleIDs[i] = r.ID
+	}
+	perms, err := s.roleRepo.GetPermissionsForRoles(ctx, roleIDs)
+	if err != nil {
+		return nil
+	}
+	return perms
+}
+
 func (s *AuthService) collectPermissions(ctx context.Context, roles []*domain.Role) []string {
 	if len(roles) == 0 {
 		return nil
