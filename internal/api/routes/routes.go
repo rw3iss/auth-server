@@ -103,6 +103,8 @@ func SetupRoutes(
 	oidcKeys, oidcErr := oidcauth.NewKeyManager(keyDir)
 	var oidcHandler *handlers.OIDCHandler
 	var fedcmHandler *handlers.FedCMHandler
+	fedcmOK := false
+	oidcOK := oidcErr == nil && oidcStore != nil
 	if oidcErr != nil || oidcStore == nil {
 		// Fail LOUD in the log but keep the rest of the server serving: a signing-key problem must not
 		// take password login down with it.
@@ -113,6 +115,7 @@ func SetupRoutes(
 		// table as OIDC. It is a different way for a browser to ask for identity, not a
 		// second identity system — so it is enabled by exactly the same condition.
 		fedcmHandler = handlers.NewFedCMHandler(oidcKeys, oidcStore, authService, issuer, loginURL, fedcmBranding())
+		fedcmOK = true
 	}
 
 	// Cookie policy for the opt-in `cookie_mode` login path (middleware/cookie.go).
@@ -221,6 +224,12 @@ func SetupRoutes(
 		router.Handle("POST "+p+"/oauth/userinfo", authMw.Authenticate(http.HandlerFunc(oidcHandler.UserInfo)))
 		router.HandleFunc("GET "+p+"/oauth/logout", oidcHandler.EndSession)
 	}
+
+	// The deployment's own identity, for every surface that renders "Sign in with <provider>".
+	providerIdentity := handlers.ProviderIdentityFromEnv(issuer, fedcmOK, oidcOK)
+	providerHandler := handlers.NewProviderHandler(providerIdentity)
+	router.Handle("GET /api/v1/provider", http.HandlerFunc(providerHandler.Get))
+	router.Handle("GET /.well-known/auth-provider", http.HandlerFunc(providerHandler.Get))
 
 	if fedcmHandler != nil {
 		// FedCM (Federated Credential Management) — "Sign in with CivicGate", brokered
