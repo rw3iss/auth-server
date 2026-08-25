@@ -227,6 +227,24 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*Regis
 		}
 	}
 
+	// THE INVITATION IS ADDRESSED TO ONE EMAIL, AND ONLY THAT EMAIL MAY CONSUME IT.
+	//
+	// Without this check, an invitation code or token was a bearer credential for ORG MEMBERSHIP: anyone
+	// who obtained the link — a forwarded email, a shared screenshot, a mailing-list archive — could
+	// register ANY address of their choosing and be joined to the organization with the roles the
+	// invitation carried. The invitee's own address was never consulted.
+	//
+	// The authenticated accept path already enforced exactly this (AcceptInvitationByID compares
+	// invitation.Email to the caller's and returns NotFound on mismatch), so the two paths into the same
+	// membership disagreed, and registration was the weaker one. They agree now.
+	//
+	// The message names no address. The holder of the link may legitimately be the invitee typing a
+	// different address by mistake, and they need to know what to do; but echoing WHICH address was
+	// invited would turn a leaked link into a way to learn someone's email.
+	if invitation != nil && types.Email(utils.NormalizeEmail(string(invitation.Email))) != email {
+		return nil, errors.Forbidden("This invitation was sent to a different email address. Register with the address it was sent to.")
+	}
+
 	err = s.txManager.WithTransaction(ctx, func(ctx context.Context) error {
 		// Create user in the app's DEFAULT pool (their home namespace);
 		// tag them into the app's OTHER pools below.
