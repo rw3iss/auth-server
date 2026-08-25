@@ -234,6 +234,19 @@ func (r *OrganizationRepository) List(ctx context.Context, filter repository.Org
 
 // AddMember adds a member to an organization
 func (r *OrganizationRepository) AddMember(ctx context.Context, membership *domain.OrganizationMembership) error {
+	// RETURNING id IS LOAD-BEARING, not a convenience.
+	//
+	// On the conflict path this row KEEPS ITS ORIGINAL id — `DO UPDATE` does not replace the primary key.
+	// The caller, however, arrived with a freshly generated `membership.ID` that was never written, and
+	// then used it: AcceptInvitation immediately calls AssignMemberRole(membership.ID, …), which
+	// FK-violated against organization_member_roles.membership_id and surfaced as a 500.
+	//
+	// It reproduced 100% of the time for anyone who was ALREADY a member of the organization they were
+	// invited to — which is the common case for a re-invite, and was exactly how it was found.
+	//
+	// `DO UPDATE … RETURNING` always returns the row (unlike `DO NOTHING`, which returns nothing on
+	// conflict and would leave the caller with the same stale id). Scanning it back means the caller
+	// always holds the id that is actually in the table.
 	query := `
 		INSERT INTO organization_members (
 			id, user_id, organization_id, status, joined_at, invited_by,
@@ -241,17 +254,19 @@ func (r *OrganizationRepository) AddMember(ctx context.Context, membership *doma
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (user_id, organization_id) WHERE deleted_at IS NULL DO UPDATE SET
 			status = EXCLUDED.status,
-			updated_at = EXCLUDED.updated_at`
+			updated_at = EXCLUDED.updated_at
+		RETURNING id`
 
 	q := getQuerier(ctx, r.db)
-	_, err := q.ExecContext(ctx, query,
+	var id types.ID
+	if err := q.QueryRowxContext(ctx, query,
 		membership.ID, membership.UserID, membership.OrganizationID,
 		membership.Status, membership.JoinedAt, membership.InvitedBy,
 		membership.CreatedAt, membership.UpdatedAt,
-	)
-	if err != nil {
+	).Scan(&id); err != nil {
 		return fmt.Errorf("failed to add member: %w", err)
 	}
+	membership.ID = id
 	return nil
 }
 
