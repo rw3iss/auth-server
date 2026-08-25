@@ -18,6 +18,7 @@ import (
 	auth "github.com/rw3iss/auth/internal/service/auth"
 	"github.com/rw3iss/auth/pkg/shared/errors"
 	jwtpkg "github.com/rw3iss/auth/internal/auth/jwt"
+	stderrors "errors"
 )
 
 // OIDCHandler implements the OpenID Connect provider surface.
@@ -633,6 +634,15 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request, fallback htt
 	}
 	pair, user, err := h.authService.IssueTokensForUser(r.Context(), userID, appCode)
 	if err != nil {
+		// A user who is not authorised for the client's application is `access_denied`, not
+		// `invalid_grant` (RFC 6749 §4.1.2.1). invalid_grant tells the client its CODE was bad, sending
+		// an integrator to debug PKCE and redirect URIs when the real answer is that this person has no
+		// membership in that application — which only an administrator can change.
+		var appErr *errors.AppError
+		if stderrors.As(err, &appErr) && appErr.HTTPStatus == http.StatusForbidden {
+			writeOAuthError(w, http.StatusForbidden, "access_denied", "this user is not authorized for this application")
+			return
+		}
 		writeOAuthError(w, http.StatusBadRequest, "invalid_grant", "could not issue tokens")
 		return
 	}
@@ -677,14 +687,24 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request, fallback htt
 	}
 
 	resp := map[string]any{
-		"access_token":  pair.AccessToken,
-		"refresh_token": pair.RefreshToken,
-		"id_token":      idToken,
-		"token_type":    "Bearer",
-		"expires_in":    pair.ExpiresIn,
+		"access_token": pair.AccessToken,
+		"id_token":     idToken,
+		"token_type":   "Bearer",
+		"expires_in":   pair.ExpiresIn,
 		// Echo the GRANTED scopes, which may be narrower than what was requested. A client that assumes it
 		// got what it asked for will misbehave the first time a scope is refused.
 		"scope": strings.Join(stored.Scopes, " "),
+	}
+	// OFFLINE_ACCESS NOW GATES THE REFRESH TOKEN (OIDC Core §11). It previously gated nothing: the scope
+	// was read only for its consent-screen label, and the refresh token was returned unconditionally — so
+	// a client that asked for no offline access, and a user who was never shown a long-lived-access
+	// prompt, still produced a credential good for repeated re-authentication.
+	//
+	// The consent screen says "stay signed in" only when this scope is requested, so issuing it otherwise
+	// grants something nobody was asked about. A client that wants it must request it and be registered
+	// for the refresh_token grant.
+	if oidc.HasScope(stored.Scopes, oidc.ScopeOffline) && client.AllowsGrant(oidc.GrantRefreshToken) {
+		resp["refresh_token"] = pair.RefreshToken
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")

@@ -6,6 +6,7 @@ import (
 
 	"github.com/rw3iss/auth/internal/auth/jwt"
 	"github.com/rw3iss/auth/internal/domain"
+	"github.com/rw3iss/auth/pkg/shared/errors"
 	"github.com/rw3iss/auth/pkg/shared/types"
 )
 
@@ -40,6 +41,31 @@ func (s *AuthService) IssueTokensForUser(ctx context.Context, userID types.ID, a
 	}
 	if appCode != "" && s.appService != nil {
 		if app, err := s.appService.GetByCode(ctx, appCode); err == nil && app != nil && app.IsActive() {
+			// THE USER-AUTHORISATION STEP. This path had none, and that was the hole in tenant
+			// segregation: /auth/login resolves the app, requires an active user_apps membership (or
+			// auto-grant), and refuses with 403 otherwise — while THIS path, reached by redeeming an
+			// OIDC authorization code, only LABELLED the token with app_code and issued it regardless.
+			//
+			// So `app_code` described a token rather than gating who could obtain one: any user who could
+			// sign in at all could get a token stamped for an application they had no membership in,
+			// simply by going through a client registered to it. The two ways into the same token now
+			// apply the same rule.
+			//
+			// Namespace tags are reconciled first, exactly as login does, so a returning shared identity
+			// is linked to the app's pools before membership is judged.
+			if tags := domain.ExcludeHomeNamespace(app.EffectiveReadNamespaces(), user.Namespace); len(tags) > 0 {
+				_ = s.userRepo.AddUserToNamespaces(ctx, user.ID, tags)
+			}
+			authorized, _ := s.appService.IsUserAuthorized(ctx, user.ID, app.ID)
+			if !authorized {
+				if !app.AutoGrantOnSignup {
+					return nil, nil, errors.Forbidden("user is not authorized for this app")
+				}
+				// The app opts into provisioning on first contact — the same entitlement grant login
+				// performs, so arriving through OIDC and arriving through the password form leave the
+				// user in an identical state.
+				s.ensureAppEntitlements(ctx, user, app, EntitlementOverrides{})
+			}
 			in.App = app
 		}
 	}

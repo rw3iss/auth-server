@@ -58,3 +58,47 @@ func TestDefaultGrantsExcludeClientCredentials(t *testing.T) {
 		}
 	}
 }
+
+// offline_access gates the refresh token (OIDC Core §11). It previously gated nothing — the scope was
+// read only for its consent-screen label and the refresh token came back regardless, granting repeated
+// re-authentication to a client that never asked and a user who was never prompted.
+func TestOfflineAccessGatesRefresh(t *testing.T) {
+	confidential := &Client{GrantTypes: []string{GrantAuthorizationCode, GrantRefreshToken}}
+	codeOnly := &Client{GrantTypes: []string{GrantAuthorizationCode}}
+
+	cases := []struct {
+		name   string
+		client *Client
+		scopes []string
+		want   bool
+	}{
+		{"asked and registered → refresh token", confidential, []string{ScopeOpenID, ScopeOffline}, true},
+		{"did not ask → none", confidential, []string{ScopeOpenID, ScopeProfile}, false},
+		{"asked but not registered for the grant → none", codeOnly, []string{ScopeOpenID, ScopeOffline}, false},
+		{"no scopes at all → none", confidential, nil, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Mirrors the condition in the authorization_code response.
+			got := HasScope(c.scopes, ScopeOffline) && c.client.AllowsGrant(GrantRefreshToken)
+			if got != c.want {
+				t.Fatalf("refresh issued = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
+// Registration validates scopes for the same reason it validates grants: an unknown scope stored on a
+// client is one a consent screen lists and a token never carries.
+func TestIsSupportedScope(t *testing.T) {
+	for _, s := range SupportedScopes {
+		if !IsSupportedScope(s) {
+			t.Fatalf("%s is in SupportedScopes but IsSupportedScope says no", s)
+		}
+	}
+	for _, s := range []string{"users:read", "admin", "", "OPENID"} {
+		if IsSupportedScope(s) {
+			t.Fatalf("IsSupportedScope accepted %q, which this server does not implement", s)
+		}
+	}
+}
