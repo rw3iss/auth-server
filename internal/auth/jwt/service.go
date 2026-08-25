@@ -475,6 +475,17 @@ type ServiceTokenResponse struct {
 // explicit subset can be enforced by the caller via client.AllowedAudiences
 // before reaching this function.
 func (s *Service) GenerateServiceToken(ctx context.Context, client *domain.M2MClient, scopes []string) (*ServiceTokenResponse, error) {
+	return s.ServiceToken(ctx, client.ClientID, client.Name, scopes)
+}
+
+// ServiceToken mints a service-principal token from primitive fields.
+//
+// Extracted so the TWO client registries mint IDENTICAL tokens. `m2m_clients` reaches it through
+// GenerateServiceToken above; an `oauth_clients` row registered for the client_credentials grant reaches
+// it directly from the OIDC token endpoint. A second copy of this claim set would be a second definition
+// of what a service principal IS, and the two would drift — which is exactly how one of them would end up
+// missing TokenType and being mistaken for a user.
+func (s *Service) ServiceToken(ctx context.Context, clientID, name string, scopes []string) (*ServiceTokenResponse, error) {
 	_ = ctx // reserved for future per-client tv lookup; kept in signature for symmetry with GenerateTokenPair.
 
 	now := time.Now().UTC()
@@ -483,7 +494,7 @@ func (s *Service) GenerateServiceToken(ctx context.Context, client *domain.M2MCl
 	claims := &TokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.cfg.Issuer,
-			Subject:   client.ClientID,
+			Subject:   clientID,
 			Audience:  s.cfg.Audience,
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -491,8 +502,8 @@ func (s *Service) GenerateServiceToken(ctx context.Context, client *domain.M2MCl
 			ID:        types.NewID().String(),
 		},
 		TokenType:   types.TokenTypeService,
-		ClientID:    client.ClientID,
-		ServiceName: client.Name,
+		ClientID:    clientID,
+		ServiceName: name,
 		Scopes:      scopes,
 		Roles:       []string{},
 		Permissions: []string{},

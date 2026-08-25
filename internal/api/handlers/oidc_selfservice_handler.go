@@ -238,7 +238,11 @@ func (h *OIDCSelfServiceHandler) Create(w http.ResponseWriter, r *http.Request) 
 	// harmless without offline_access, which self-service clients cannot request. client_credentials is
 	// deliberately absent — that grant authenticates a SERVICE, not a person, and belongs to the
 	// administratively-issued M2M registry.
-	grants := []string{"authorization_code", "refresh_token"}
+	// FIXED, and deliberately not caller-settable — unlike the admin path, which now validates a chosen
+	// list. A self-service registrant may not grant themselves client_credentials: that grant
+	// authenticates a SERVICE with no user present, and handing it out on self-service registration would
+	// let any member mint an application principal. Administratively-issued clients can have it.
+	grants := oidc.DefaultGrants
 	in := oidc.ClientInput{
 		Name: &name, Description: &req.Description, LogoURL: &req.LogoURL,
 		RedirectURIs: &redirects, PostLogoutURIs: &postLogout,

@@ -128,6 +128,55 @@ func normalizeOrigin(raw string) string {
 	return scheme + "://" + host
 }
 
+// ── Grant types ──────────────────────────────────────────────────────────────────────────────────────
+
+// The grants this server implements. A client's grant_types is validated against this at registration,
+// so a typo is refused at write time rather than becoming a client that can never obtain a token.
+const (
+	GrantAuthorizationCode = "authorization_code"
+	GrantRefreshToken      = "refresh_token"
+	GrantClientCredentials = "client_credentials"
+)
+
+// SupportedGrants is what the discovery document advertises. It is derived from what the token endpoint
+// ACTUALLY implements — advertising a grant we do not serve sends every standards-compliant library down
+// a path that returns unsupported_grant_type, which is worse than not offering it.
+var SupportedGrants = []string{GrantAuthorizationCode, GrantRefreshToken, GrantClientCredentials}
+
+// IsSupportedGrant reports whether this server implements a grant at all.
+func IsSupportedGrant(grant string) bool {
+	for _, g := range SupportedGrants {
+		if g == grant {
+			return true
+		}
+	}
+	return false
+}
+
+// DefaultGrants is what a client gets when none are specified, and what an EXISTING row with an empty
+// array is treated as. Rows predate enforcement, so an empty array must mean "the old default" rather
+// than "nothing allowed" — the alternative silently breaks every client registered before this.
+var DefaultGrants = []string{GrantAuthorizationCode, GrantRefreshToken}
+
+// AllowsGrant reports whether this client may use a grant.
+//
+// THIS IS ENFORCED, unlike before. `grant_types` was stored and never consulted: there was no
+// AllowsGrant, and the token endpoint dispatched purely on the request's own grant_type. The column read
+// like a control and was decoration, which is the dangerous kind of setting — an operator could remove
+// client_credentials from a client and change nothing at all.
+func (c *Client) AllowsGrant(grant string) bool {
+	grants := c.GrantTypes
+	if len(grants) == 0 {
+		grants = DefaultGrants
+	}
+	for _, g := range grants {
+		if g == grant {
+			return true
+		}
+	}
+	return false
+}
+
 // AllowsScope reports whether the client is permitted to request a scope at all.
 func (c *Client) AllowsScope(scope string) bool {
 	for _, s := range c.AllowedScopes {

@@ -17,6 +17,7 @@ import (
 	"github.com/rw3iss/auth/internal/auth/oidc"
 	auth "github.com/rw3iss/auth/internal/service/auth"
 	"github.com/rw3iss/auth/pkg/shared/errors"
+	jwtpkg "github.com/rw3iss/auth/internal/auth/jwt"
 )
 
 // OIDCHandler implements the OpenID Connect provider surface.
@@ -37,13 +38,16 @@ type OIDCHandler struct {
 	keys        *oidc.KeyManager
 	store       *oidc.Store
 	authService *auth.AuthService
+	// Minting a SERVICE token needs the symmetric signer, not the OIDC KeyManager (which holds the RS256
+	// key used for id_tokens). Same signer the m2m registry uses, so both registries emit one token shape.
+	jwtService  *jwtpkg.Service
 	issuer      string
 	// Where to send an unauthenticated /oauth/authorize — the login UI, which returns here afterwards.
 	loginURL string
 }
 
-func NewOIDCHandler(keys *oidc.KeyManager, store *oidc.Store, authService *auth.AuthService, issuer, loginURL string) *OIDCHandler {
-	return &OIDCHandler{keys: keys, store: store, authService: authService, issuer: issuer, loginURL: loginURL}
+func NewOIDCHandler(keys *oidc.KeyManager, store *oidc.Store, authService *auth.AuthService, jwtService *jwtpkg.Service, issuer, loginURL string) *OIDCHandler {
+	return &OIDCHandler{keys: keys, store: store, authService: authService, jwtService: jwtService, issuer: issuer, loginURL: loginURL}
 }
 
 // ── Discovery ─────────────────────────────────────────────────────────────────────────────────────────
@@ -64,7 +68,11 @@ func (h *OIDCHandler) Discovery(w http.ResponseWriter, r *http.Request) {
 		"scopes_supported":                      oidc.SupportedScopes,
 		"response_types_supported":              []string{"code"},
 		"response_modes_supported":              []string{"query"},
-		"grant_types_supported":                 []string{"authorization_code", "refresh_token", "client_credentials"},
+		// DERIVED from what the token endpoint actually implements, never hand-listed. This document is
+		// how every standards-compliant library decides what to attempt, so a grant listed here and not
+		// served sends clients down a path that can only fail — which is what happened with
+		// refresh_token: advertised, and answered with unsupported_grant_type.
+		"grant_types_supported":                 oidc.SupportedGrants,
 		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"RS256"},
 		"token_endpoint_auth_methods_supported": []string{"client_secret_post", "client_secret_basic", "none"},
@@ -141,6 +149,13 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 
 	if responseType != "code" {
 		fail("unsupported_response_type", "only response_type=code is supported")
+		return
+	}
+	// Enforced at the AUTHORIZE step as well as at the token step. Checking only at the token endpoint
+	// would walk the user through a full consent screen before refusing — the client is knowably
+	// ineligible before anyone is asked to approve anything.
+	if !client.AllowsGrant(oidc.GrantAuthorizationCode) {
+		fail("unauthorized_client", "this client is not permitted to use the authorization_code grant")
 		return
 	}
 
@@ -367,18 +382,179 @@ func htmlEscape(s string) string {
 	return r.Replace(s)
 }
 
+// clientFromRequest reads and authenticates the client on a token request.
+//
+// Basic auth is the RFC-preferred form and the body form is the widely-used one; both are accepted, with
+// Basic winning, exactly as the authorization_code path already did. Returns nil (having written the
+// error) when the client is unknown or its secret is wrong.
+func (h *OIDCHandler) clientFromRequest(w http.ResponseWriter, r *http.Request) *oidc.Client {
+	clientID := r.FormValue("client_id")
+	clientSecret := r.FormValue("client_secret")
+	if u, p, ok := r.BasicAuth(); ok {
+		clientID, clientSecret = u, p
+	}
+	if clientID == "" {
+		writeOAuthError(w, http.StatusBadRequest, "invalid_request", "client_id is required")
+		return nil
+	}
+	client, err := h.store.GetClient(r.Context(), clientID)
+	if err != nil {
+		writeOAuthError(w, http.StatusUnauthorized, "invalid_client", "unknown client")
+		return nil
+	}
+	if !client.IsPublic() {
+		if clientSecret == "" || !checkSecret(client.ClientSecretHash.String, clientSecret) {
+			writeOAuthError(w, http.StatusUnauthorized, "invalid_client", "invalid client credentials")
+			return nil
+		}
+	}
+	return client
+}
+
+// ── Token endpoint: the refresh_token grant (RFC 6749 §6) ────────────────────────────────────────────
+
+// tokenByRefresh exchanges a refresh token for a fresh pair.
+//
+// This grant was ADVERTISED in the discovery document and not implemented: the endpoint forwarded every
+// non-authorization_code grant to the m2m handler, which serves only client_credentials and answered
+// `unsupported_grant_type`. A client that did everything right — requested offline_access, stored the
+// refresh token, came back when the access token expired — hit a wall at the URL we told it to use.
+//
+// An unknown client id falls through to the m2m handler rather than erroring, so a non-OIDC caller still
+// reaches the registry that knows it.
+func (h *OIDCHandler) tokenByRefresh(w http.ResponseWriter, r *http.Request, fallback http.HandlerFunc) {
+	refresh := r.FormValue("refresh_token")
+	if refresh == "" {
+		writeOAuthError(w, http.StatusBadRequest, "invalid_request", "refresh_token is required")
+		return
+	}
+	if _, err := h.store.GetClient(r.Context(), r.FormValue("client_id")); err != nil {
+		if _, _, ok := r.BasicAuth(); !ok {
+			fallback(w, r)
+			return
+		}
+	}
+	client := h.clientFromRequest(w, r)
+	if client == nil {
+		return
+	}
+	if !client.AllowsGrant(oidc.GrantRefreshToken) {
+		writeOAuthError(w, http.StatusBadRequest, "unauthorized_client",
+			"this client is not permitted to use the refresh_token grant")
+		return
+	}
+
+	// The refresh token carries its own subject and is validated by the JWT service; the client
+	// authentication above proves WHO is presenting it. Rotation semantics are whatever RefreshTokens
+	// does for a first-party session — one implementation, so an OIDC refresh and a session refresh
+	// cannot drift apart in how they revoke.
+	pair, err := h.authService.RefreshTokens(r.Context(), refresh, nil)
+	if err != nil {
+		writeOAuthError(w, http.StatusBadRequest, "invalid_grant", "the refresh token is not valid")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"access_token":  pair.AccessToken,
+		"refresh_token": pair.RefreshToken,
+		"token_type":    "Bearer",
+		"expires_in":    int(pair.ExpiresIn),
+	})
+}
+
+// ── Token endpoint: the client_credentials grant (RFC 6749 §4.4) ─────────────────────────────────────
+
+// tokenByClientCredentials issues a SERVICE token to an OIDC client that is registered for it.
+//
+// Before this, client_credentials reached only the separate `m2m_clients` registry, so an application
+// created through /admin/applications could not use the grant however its grant_types were set — and the
+// discovery document advertised it regardless. Now the two registries share one endpoint and one rule:
+// the grant works iff the client is registered for it. Self-service clients still cannot be, because
+// self-service registration hardcodes its grant list and refuses this one.
+//
+// An id that is not an OIDC client falls through to the m2m handler, so the existing machine clients keep
+// working with no change on their side.
+func (h *OIDCHandler) tokenByClientCredentials(w http.ResponseWriter, r *http.Request, fallback http.HandlerFunc) {
+	clientID := r.FormValue("client_id")
+	if u, _, ok := r.BasicAuth(); ok && u != "" {
+		clientID = u
+	}
+	if _, err := h.store.GetClient(r.Context(), clientID); err != nil {
+		fallback(w, r)
+		return
+	}
+	client := h.clientFromRequest(w, r)
+	if client == nil {
+		return
+	}
+	// A PUBLIC client has no secret, so it cannot authenticate itself — and this grant is nothing but
+	// client authentication. Allowing it would hand a service token to anyone holding a public client id.
+	if client.IsPublic() {
+		writeOAuthError(w, http.StatusUnauthorized, "invalid_client",
+			"client_credentials requires a confidential client with a secret")
+		return
+	}
+	if !client.AllowsGrant(oidc.GrantClientCredentials) {
+		writeOAuthError(w, http.StatusBadRequest, "unauthorized_client",
+			"this client is not registered for the client_credentials grant")
+		return
+	}
+
+	scopes := client.FilterScopes(strings.Fields(r.FormValue("scope")))
+	appCode := ""
+	if client.AppCode.Valid {
+		appCode = client.AppCode.String
+	}
+	_ = appCode // carried on the client row; the service token is scoped by client + scopes, not app_code
+	tok, err := h.jwtService.ServiceToken(r.Context(), client.ClientID, client.Name, scopes)
+	if err != nil {
+		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not issue a token")
+		return
+	}
+	// RFC 6749 §4.4.3: no refresh token for this grant — the client can simply ask again.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"access_token": tok.AccessToken,
+		"token_type":   "Bearer",
+		"expires_in":   tok.ExpiresIn,
+		"scope":        strings.Join(scopes, " "),
+	})
+}
+
 // ── Token endpoint: the authorization_code grant ──────────────────────────────────────────────────────
 
-// Token handles POST /oauth/token for `authorization_code`, and delegates every other grant to the
-// existing OAuth handler (client_credentials) so there is one token URL, as discovery advertises.
+// Token handles POST /oauth/token — the single token URL discovery advertises, for every grant this
+// server implements.
+//
+// THREE GRANTS, and each was in a different state before this:
+//
+//	authorization_code  worked
+//	refresh_token       ADVERTISED BUT ABSENT. Anything that was not authorization_code fell through to
+//	                    the m2m handler, which answers `unsupported_grant_type` for it — so a client that
+//	                    correctly asked for offline_access, received a refresh token, and then tried to
+//	                    use it at the advertised endpoint got a flat refusal. That is RFC 6749 §6, and
+//	                    every standards-compliant library attempts it.
+//	client_credentials  served only the SEPARATE m2m_clients registry, so an application registered
+//	                    through /admin/applications or self-service could never use it whatever its
+//	                    grant_types said.
+//
+// Client grant_types are now ENFORCED here (`AllowsGrant`) before any grant runs, so the column means
+// what it says. The m2m fallback is preserved for client ids that are not OIDC clients at all.
 func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request, fallback http.HandlerFunc) {
 	if err := r.ParseForm(); err != nil {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_request", "could not parse the request body")
 		return
 	}
 	grant := r.FormValue("grant_type")
-	if grant != "authorization_code" {
-		fallback(w, r)
+	if !oidc.IsSupportedGrant(grant) {
+		writeOAuthError(w, http.StatusBadRequest, "unsupported_grant_type",
+			"supported grant types are: "+strings.Join(oidc.SupportedGrants, ", "))
+		return
+	}
+	if grant == oidc.GrantRefreshToken {
+		h.tokenByRefresh(w, r, fallback)
+		return
+	}
+	if grant == oidc.GrantClientCredentials {
+		h.tokenByClientCredentials(w, r, fallback)
 		return
 	}
 
@@ -399,6 +575,11 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request, fallback htt
 	client, err := h.store.GetClient(r.Context(), clientID)
 	if err != nil {
 		writeOAuthError(w, http.StatusUnauthorized, "invalid_client", "unknown client")
+		return
+	}
+	if !client.AllowsGrant(oidc.GrantAuthorizationCode) {
+		writeOAuthError(w, http.StatusBadRequest, "unauthorized_client",
+			"this client is not permitted to use the authorization_code grant")
 		return
 	}
 	// A confidential client must prove itself. A public client cannot, which is exactly why PKCE is

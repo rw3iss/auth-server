@@ -75,6 +75,10 @@ type createOIDCClientRequest struct {
 	RequirePKCE    *bool    `json:"require_pkce"`
 	// A public client (SPA / mobile) gets no secret; PKCE protects it instead.
 	Public bool `json:"public"`
+	// Which grants this application may use. Omitted → authorization_code + refresh_token, which is what
+	// an interactive application needs and nothing more. An administrator may add client_credentials here
+	// for a server-to-server application; self-service registration cannot (see the self-service handler).
+	GrantTypes []string `json:"grant_types"`
 }
 
 // Create handles POST /admin/oauth/clients. Returns the secret EXACTLY ONCE.
@@ -112,7 +116,34 @@ func (h *OIDCAdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 		AllowedScopes: &req.AllowedScopes, AppCode: &req.AppCode,
 		Trusted: &req.Trusted, RequirePKCE: req.RequirePKCE,
 	}
-	grants := []string{"authorization_code", "refresh_token"}
+	// GRANTS ARE NOW CHOSEN AND VALIDATED, not hardcoded.
+	//
+	// They used to be fixed here at authorization_code + refresh_token, which meant the stored column
+	// could never say anything else through this endpoint — while PATCH accepted any array at all and
+	// nothing enforced either. Validating at the write is what makes `AllowsGrant` meaningful: a typo, or
+	// a grant this server does not implement, is refused now rather than producing a client that can
+	// never obtain a token and gives no clue why.
+	grants := oidc.DefaultGrants
+	if len(req.GrantTypes) > 0 {
+		for _, g := range req.GrantTypes {
+			if !oidc.IsSupportedGrant(g) {
+				writeError(w, errors.InvalidInput("grant_types", "Unsupported grant type: "+g))
+				return
+			}
+		}
+		grants = req.GrantTypes
+	}
+	// client_credentials authenticates the APPLICATION, so it needs a secret to authenticate with. On a
+	// public client the grant would hand a service token to anyone holding a client id that is published
+	// by design.
+	if req.Public {
+		for _, g := range grants {
+			if g == oidc.GrantClientCredentials {
+				writeError(w, errors.InvalidInput("grant_types", "client_credentials requires a confidential client; do not set public"))
+				return
+			}
+		}
+	}
 	in.GrantTypes = &grants
 
 	secret, err := h.store.CreateClient(r.Context(), req.ClientID, in, req.Public)
@@ -181,6 +212,18 @@ func (h *OIDCAdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 	in.RedirectURIs, in.PostLogoutURIs = slice("redirect_uris"), slice("post_logout_uris")
 	in.AllowedScopes, in.GrantTypes = slice("allowed_scopes"), slice("grant_types")
 	in.Trusted, in.RequirePKCE = boolp("trusted"), boolp("require_pkce")
+
+	// PATCH validates the same way CREATE does. It previously accepted ANY array — including grants this
+	// server does not implement — because nothing read the column afterwards. Now that AllowsGrant
+	// enforces it, an unvalidated write here is a way to lock a working client out of its own grant.
+	if in.GrantTypes != nil {
+		for _, g := range *in.GrantTypes {
+			if !oidc.IsSupportedGrant(g) {
+				writeError(w, errors.InvalidInput("grant_types", "Unsupported grant type: "+g))
+				return
+			}
+		}
+	}
 
 	if in.RedirectURIs != nil {
 		if len(*in.RedirectURIs) == 0 {

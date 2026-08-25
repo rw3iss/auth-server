@@ -110,7 +110,7 @@ func SetupRoutes(
 		// take password login down with it.
 		slog.Error("oidc: signing key unavailable — OIDC endpoints disabled", "error", oidcErr)
 	} else {
-		oidcHandler = handlers.NewOIDCHandler(oidcKeys, oidcStore, authService, issuer, loginURL)
+		oidcHandler = handlers.NewOIDCHandler(oidcKeys, oidcStore, authService, jwtService, issuer, loginURL)
 		// FedCM reuses the SAME keys, the SAME client registry and the SAME consent
 		// table as OIDC. It is a different way for a browser to ask for identity, not a
 		// second identity system — so it is enabled by exactly the same condition.
