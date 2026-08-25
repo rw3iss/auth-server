@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -52,6 +54,70 @@ func (c *Client) AllowsRedirect(uri string) bool {
 		}
 	}
 	return false
+}
+
+// AllowsOrigin reports whether `origin` (a bare scheme://host[:port], as sent in
+// the Origin header) belongs to this client.
+//
+// FedCM has no redirect_uri — the browser hands the token straight to the calling
+// page — so the Origin header is the only thing identifying who is asking, and it
+// has to be checked against something the client already proved it controls. That
+// something is the registered redirect_uris and post_logout_uris: their origins are
+// exactly the set of places this client was authorised to receive a session at.
+//
+// DERIVED, NOT A SECOND ALLOW-LIST. A separate fedcm_origins column would be a
+// second place to get this right, and the two would eventually disagree — the same
+// reason FedCM reuses oauth_clients rather than introducing a client registry of
+// its own. A FedCM-only relying party registers its origin as a redirect_uri, which
+// is a field every OIDC client already fills in.
+func (c *Client) AllowsOrigin(origin string) bool {
+	if origin == "" {
+		return false
+	}
+	want := normalizeOrigin(origin)
+	if want == "" {
+		return false
+	}
+	for _, u := range append(append([]string{}, c.RedirectURIs...), c.PostLogoutURIs...) {
+		if normalizeOrigin(u) == want {
+			return true
+		}
+	}
+	return false
+}
+
+// PrimaryOrigin returns the origin of the client's first registered redirect URI,
+// or "" when it has none. Used for links we can only derive rather than store.
+func (c *Client) PrimaryOrigin() string {
+	for _, u := range c.RedirectURIs {
+		if o := normalizeOrigin(u); o != "" {
+			return o
+		}
+	}
+	return ""
+}
+
+// normalizeOrigin reduces a URL to scheme://host[:port], lowercased.
+//
+// The default port is dropped because a browser's Origin header never carries one
+// ("https://x.example", not "https://x.example:443") while a registered redirect
+// URI reasonably might — and a comparison that treats those as different rejects a
+// legitimate relying party for a reason nothing in the response would explain.
+func normalizeOrigin(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	scheme := strings.ToLower(u.Scheme)
+	host := strings.ToLower(u.Hostname())
+	port := u.Port()
+	if (scheme == "https" && port == "443") || (scheme == "http" && port == "80") {
+		port = ""
+	}
+	if port != "" {
+		return scheme + "://" + host + ":" + port
+	}
+	return scheme + "://" + host
 }
 
 // AllowsScope reports whether the client is permitted to request a scope at all.
@@ -198,6 +264,35 @@ func (s *Store) SaveConsent(ctx context.Context, userID, clientID string, scopes
 		INSERT INTO oauth_consents (user_id, client_id, scopes) VALUES ($1,$2,$3)
 		ON CONFLICT (user_id, client_id) DO UPDATE SET scopes = $3, updated_at = now()`,
 		userID, clientID, pq.StringArray(scopes))
+	return err
+}
+
+// ListConsentedClients returns every client this user has a standing grant with.
+//
+// FedCM's accounts endpoint reports these as `approved_clients`, which is what
+// tells the browser whether to show the "you are about to share…" disclosure. It
+// reads the same oauth_consents rows the OIDC consent screen writes, so a grant
+// made through either flow is honoured by both — and revoking it once revokes it
+// for both.
+func (s *Store) ListConsentedClients(ctx context.Context, userID string) ([]string, error) {
+	var ids []string
+	err := s.db.SelectContext(ctx, &ids,
+		`SELECT client_id FROM oauth_consents WHERE user_id = $1 ORDER BY client_id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// DeleteConsent removes a standing grant. Used by FedCM's disconnect endpoint and
+// by any "revoke this app" UI.
+//
+// Deleting a row that is not there is success, not an error: disconnect is
+// idempotent by nature, and a relying party retrying it must not get a failure for
+// having already succeeded.
+func (s *Store) DeleteConsent(ctx context.Context, userID, clientID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM oauth_consents WHERE user_id = $1 AND client_id = $2`, userID, clientID)
 	return err
 }
 

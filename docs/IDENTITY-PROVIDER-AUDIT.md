@@ -1,5 +1,11 @@
 # Audit — auth.civicgate.org as a third-party identity provider
 
+> **STATUS, 2026-08-24 — §2 is now a HISTORICAL record, not a to-do list.** P1, P2 and P3 shipped in
+> migration `025` (RS256 + `kid`, JWKS, discovery, `/oauth/authorize` with PKCE, `/userinfo`, a client
+> registry with a redirect allow-list, and a consent screen). **FedCM shipped on top of it** — see
+> [`FEDCM.md`](./FEDCM.md) and §6 below. Read §2 as "what was missing when this was written"; §6 is the
+> current state.
+
 **Date:** 2026-08-19
 **Question asked:** can this serve as an enterprise-grade IdP for other sites, so CivicGate becomes a
 central "civics identity" other applications authenticate against?
@@ -126,3 +132,39 @@ the account, session, org and permission model is more complete than most projec
 For **third-party federation**, it is not yet an IdP in the sense integrators expect — not because it lacks
 features, but because it lacks the four standard endpoints and the asymmetric signing that make those
 features consumable from outside. P1 and P2 are modest, additive, and non-breaking; P3 is the real work.
+
+---
+
+## 6. Status log — what has shipped since
+
+### Migration 025 — the OIDC provider (P1–P3, and most of P4)
+
+Closes §2.1 through §2.6. `internal/auth/oidc` owns an **RS256** keypair with a derived `kid`, deliberately
+separate from `internal/auth/jwt` (whose HMAC tokens are internal-only and correctly symmetric — the two
+concerns were never merged, so nothing was weakened to add federation). Shipped: `/.well-known/jwks.json`,
+`/.well-known/openid-configuration`, `/oauth/authorize` with mandatory S256 PKCE, the `authorization_code`
+grant on the existing `/oauth/token`, `/oauth/userinfo`, RP-initiated logout, an `oauth_clients` registry with
+an **exact-match** redirect allow-list, `oauth_consents`, and a consent screen. §3's scope design landed as
+written, including `civic:positions` / `civic:activity` as **sensitive** scopes that re-prompt every time.
+
+### FedCM — browser-mediated sign-in
+
+Added on top, with **no migration**: it reuses the same keys, the same `oauth_clients` registry and the same
+`oauth_consents` table. Seven root-level endpoints behind a `Sec-Fetch-Dest: webidentity` gate; a relying
+party is authorised by its `Origin` matched against the origins it already registered as redirect URIs.
+
+It also finally gave the AUDIT 9.2 cookie middleware a caller: `POST /auth/login` accepts `cookie_mode: true`.
+The primitives had existed since that audit with nothing using them, which is the state in which security code
+quietly rots.
+
+Full detail, including the three things that fail **silently** if a deployment gets them wrong — the
+well-known file's location, the cookie's `SameSite`, and the login-status bit — is in [`FEDCM.md`](./FEDCM.md).
+
+### Still open
+
+- **§4's per-app audit** of which relying party received which claims. The consent record exists; a per-client
+  disclosure log does not.
+- **Scope-filtered `/userinfo`.** The ID token filters claims by scope; `/userinfo` still returns the token's
+  own claim set rather than intersecting with the granted scopes.
+- **Self-service consent revocation.** `oauth_consents` rows can be dropped by a relying party through FedCM's
+  disconnect endpoint, but a member has no "apps connected to my account" screen of their own yet.

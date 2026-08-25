@@ -19,13 +19,43 @@ import (
 // AuthHandler handles authentication endpoints
 type AuthHandler struct {
 	authService *auth.AuthService
+	cookies     middleware.CookieOptions
+	// refreshMaxAge is the refresh cookie's lifetime in seconds. Sourced from the
+	// same JWT config the refresh TOKEN uses, so the cookie and the credential
+	// inside it cannot expire at different times.
+	refreshMaxAge int
+	// trustedOrigins is the first-party allow-list used to decide whether a login
+	// may WRITE cookies. See middleware.IsFirstPartyRequest.
+	trustedOrigins []string
+}
+
+// AuthHandlerOption configures optional AuthHandler behaviour. Variadic so the
+// existing single-argument constructor keeps working for every caller that does
+// not care about cookies.
+type AuthHandlerOption func(*AuthHandler)
+
+// WithCookies enables the cookie_mode login path with the given cookie policy.
+//
+// trustedOrigins is the first-party allow-list consulted when a browser does not
+// send `Sec-Fetch-Site` — normally the server's CORS origins.
+func WithCookies(opts middleware.CookieOptions, refreshMaxAgeSec int, trustedOrigins []string) AuthHandlerOption {
+	return func(h *AuthHandler) {
+		h.cookies = opts
+		h.refreshMaxAge = refreshMaxAgeSec
+		h.trustedOrigins = trustedOrigins
+	}
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(authService *auth.AuthService) *AuthHandler {
-	return &AuthHandler{
-		authService: authService,
+func NewAuthHandler(authService *auth.AuthService, opts ...AuthHandlerOption) *AuthHandler {
+	h := &AuthHandler{
+		authService:   authService,
+		refreshMaxAge: int((7 * 24 * time.Hour).Seconds()),
 	}
+	for _, o := range opts {
+		o(h)
+	}
+	return h
 }
 
 // Register handles user registration
@@ -156,6 +186,43 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if result.Organization != nil {
 		resp.Organization = dto.ToOrganizationResponse(result.Organization)
+	}
+
+	// AUDIT 9.2 cookie path, finally wired (it existed as middleware primitives and
+	// had no caller). Opt-in per request: the bearer body is unchanged, so nothing
+	// that does not ask for cookies sees any difference.
+	//
+	// FIRST-PARTY ONLY, and this is a security control rather than tidiness. Login
+	// is unauthenticated and carries no CSRF token, so a cross-site page can POST
+	// ITS OWN credentials here with `credentials: "include"`; it cannot read the
+	// reply, but the Set-Cookie still lands and the victim's browser ends up holding
+	// a session for the ATTACKER's account. SameSite=Lax used to prevent that on its
+	// own; SameSite=None — which FedCM requires — does not. See
+	// middleware.IsFirstPartyRequest.
+	//
+	// A refused request still LOGS IN and still returns its tokens. Only the cookies
+	// are withheld, because failing the whole login would break bearer clients that
+	// merely set the flag hopefully.
+	if req.CookieMode && !middleware.IsFirstPartyRequest(r, h.trustedOrigins) {
+		logging.FromContext(r.Context()).Warn("cookie_mode refused for a cross-site login",
+			"sec_fetch_site", r.Header.Get("Sec-Fetch-Site"), "origin", r.Header.Get("Origin"))
+		req.CookieMode = false
+	}
+	if req.CookieMode {
+		csrf, err := middleware.NewCSRFToken()
+		if err != nil {
+			// A login that succeeded must not fail because the CSRF token could not be
+			// minted — degrade to the bearer response the client already handles.
+			logging.FromContext(r.Context()).Error("cookie_mode: could not mint CSRF token", "err", err.Error())
+		} else {
+			middleware.SetAuthCookiesWith(w, h.cookies,
+				result.TokenPair.AccessToken, result.TokenPair.RefreshToken, csrf,
+				int(result.TokenPair.ExpiresIn), h.refreshMaxAge)
+			// FedCM login status (Set-Login). Told at the moment the session is created,
+			// so the browser will consult the accounts endpoint instead of assuming
+			// signed-out and skipping the IdP entirely.
+			middleware.SetLoginStatus(w, true)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -427,6 +494,12 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
+	// Unconditional: clearing a cookie that was never set is a no-op, and the
+	// alternative — only clearing when the caller says it used cookies — leaves a
+	// live session cookie behind whenever a client forgets to say so.
+	middleware.ClearAuthCookiesWith(w, h.cookies)
+	middleware.SetLoginStatus(w, false)
+
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
@@ -442,6 +515,12 @@ func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 		handleServiceError(w, err)
 		return
 	}
+
+	// "End every session" must include the one held in this browser's cookies, and
+	// must tell FedCM the person is signed out — otherwise the browser keeps offering
+	// this account in its chooser after the person deliberately revoked everything.
+	middleware.ClearAuthCookiesWith(w, h.cookies)
+	middleware.SetLoginStatus(w, false)
 
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }

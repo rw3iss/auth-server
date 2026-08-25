@@ -619,6 +619,54 @@ REDIS_POOL_SIZE=10
 |--------|----------|-------------|------|
 | POST | `/api/v1/oauth/token` | OAuth2 client_credentials grant (RFC 6749 §4.4). Body: `grant_type=client_credentials`, `client_id`, `client_secret`, optional `scope`. Accepts form-encoded or JSON. Issues a service-principal token (`token_type: "service"`). Failures collapse to `invalid_client` to prevent enumeration. | No (client_id + client_secret in body) |
 
+### Identity Provider — OIDC (migration 025)
+
+Other applications send a person here to sign in and receive a verifiable token, without ever handling their
+credentials. Tokens are **RS256** with a `kid` header, verifiable against the published JWKS.
+
+**Discovery lives at the ROOT, not under `API_PREFIX`** — the spec fixes these paths relative to the issuer,
+and no client library looks anywhere else.
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/.well-known/openid-configuration` | OIDC Discovery 1.0 document | No |
+| GET | `/.well-known/jwks.json` | Public signing keys (public by design) | No |
+| GET | `/api/v1/oauth/authorize` | Authorization-code flow + PKCE (S256 only) and the consent screen | Optional (bounced to login) |
+| POST | `/api/v1/oauth/token` | `authorization_code` grant → `id_token` + token pair (also serves `client_credentials`) | client_id + secret / PKCE |
+| GET\|POST | `/api/v1/oauth/userinfo` | OIDC standard profile endpoint | Bearer |
+| GET | `/api/v1/oauth/logout` | RP-initiated logout (registered post-logout URIs only) | No |
+| GET\|POST\|PATCH\|DELETE | `/api/v1/admin/oauth/clients…` | Relying-party registry: create, list, update, rotate secret, delete | Platform admin |
+
+### Identity Provider — FedCM
+
+Browser-mediated "Sign in with CivicGate" — the browser draws the account chooser, so no popup and no
+third-party cookies. **Reuses the OIDC keys, client registry and consent table**; no migration, no second
+identity system. Full guide: [`docs/FEDCM.md`](./docs/FEDCM.md).
+
+Root-level paths, for the same reason OIDC discovery is. **Every one requires `Sec-Fetch-Dest: webidentity`**
+(except `/fedcm/login`) — a forbidden header name only the browser can set, which is what stops these being
+credentialed identity reads callable by any page. `curl` must send it too.
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/.well-known/web-identity` | Names the config URL. ⚠ **The browser fetches this from the eTLD+1** (`civicgate.org`), not from `auth.civicgate.org` — see `docs/FEDCM.md` §3 | No |
+| GET | `/fedcm/config.json` | Provider manifest: endpoints, `login_url`, branding | No |
+| GET | `/fedcm/accounts` | The signed-in accounts. `401` = signed out | **Session cookie** |
+| POST | `/fedcm/assertion` | Mints the ID token for one relying party. Validates `client_id`, `Origin`, `account_id`, `nonce`. Credentialed CORS | **Session cookie** |
+| GET | `/fedcm/client-metadata` | The relying party's privacy / terms links | No (uncredentialed by design) |
+| POST | `/fedcm/disconnect` | Drops the consent row for one relying party | **Session cookie** |
+| GET | `/fedcm/login` | The `login_url` page — sets the browser's login-status bit | Optional |
+
+FedCM needs the session as a **cookie**: the browser makes these calls itself and cannot attach an
+`Authorization` header. `POST /api/v1/auth/login` therefore accepts **`cookie_mode: true`**, which additionally
+writes `HttpOnly` session cookies (the token pair is still returned in the body). `AUTH_COOKIE_CROSS_SITE`
+(default: on when the provider is enabled) makes them `SameSite=None; Secure` — **required**, because a `Lax`
+cookie is not attached on the relying party's origin and the endpoint would honestly answer "no accounts".
+
+`SameSite=None` gives up the browser's own login-CSRF defence, so cookies are written **only for a
+first-party login** (`Sec-Fetch-Site`, with an `Origin` allow-list fallback). A cross-site login still
+succeeds and still returns its tokens; it just gets no cookies. See `docs/FEDCM.md` §4.
+
 ### Service-Only Endpoints
 
 Gated to `system_admin` token today; future M2M tokens once available.
@@ -843,6 +891,8 @@ Deeper-dive docs live in the [`docs/`](./docs/) directory:
 - [`docs/How_It_Works.md`](./docs/How_It_Works.md) — End-to-end walkthrough of the auth lifecycle: registration, login, JWT issuance/refresh, RBAC checks, multi-tenant org isolation, and SSO flows.
 - [`docs/Development.md`](./docs/Development.md) — Local development guide: project layout, running the server, seeding data, writing handlers/services, adding migrations, and the test workflow.
 - [`docs/EMAIL_TEMPLATES.md`](./docs/EMAIL_TEMPLATES.md) — Themed HTML email system: the shared layout/shell + per-message templates, the light/dark shell variants, the recipient `default_color_mode` selection rule, `EMAIL_TEMPLATES_PATH` overrides, and how to add a new email type.
+- [`docs/FEDCM.md`](./docs/FEDCM.md) — Browser-mediated sign-in: the seven FedCM endpoints, the `Sec-Fetch-Dest: webidentity` gate, why the well-known file must sit on the eTLD+1, why the session cookie must be `SameSite=None`, the login-status bit, and how a relying party registers.
+- [`docs/IDENTITY-PROVIDER-AUDIT.md`](./docs/IDENTITY-PROVIDER-AUDIT.md) — The 2026-08 audit of this server as a third-party IdP, plus a status log of what has shipped since.
 
 ### Configurable API Prefix
 

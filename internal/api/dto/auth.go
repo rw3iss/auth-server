@@ -62,6 +62,15 @@ type LoginRequest struct {
 	// validated server-side as an org-scoped role — no privilege escalation.
 	RoleCode       string   `json:"role_code,omitempty"`
 	LinkedAppCodes []string `json:"linked_app_codes,omitempty"`
+	// CookieMode additionally writes the session as HttpOnly + Secure cookies
+	// (middleware/cookie.go). Tokens are STILL returned in the body — the two are
+	// not exclusive, and a client that asked for cookies usually also holds a
+	// bearer copy for its API calls.
+	//
+	// This is what makes the server usable as a FedCM identity provider: the
+	// browser calls the accounts endpoint itself and has no way to attach an
+	// Authorization header, so a cookie is the only credential it can present.
+	CookieMode bool `json:"cookie_mode,omitempty"`
 }
 
 // LoginResponse represents a login response. When RequiresTwoFactor is true

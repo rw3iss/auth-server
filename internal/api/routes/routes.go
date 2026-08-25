@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 
@@ -81,8 +83,6 @@ func SetupRoutes(
 	}
 	rateLimiter := middleware.NewRateLimiter(ctx, cfg.Security, tc)
 
-	// Create handlers
-	authHandler := handlers.NewAuthHandler(authService)
 	availabilityHandler := handlers.NewAvailabilityHandler(authService)
 
 	// ── OIDC provider (migration 025) ────────────────────────────────────────────────────────────────
@@ -102,13 +102,34 @@ func SetupRoutes(
 	}
 	oidcKeys, oidcErr := oidcauth.NewKeyManager(keyDir)
 	var oidcHandler *handlers.OIDCHandler
+	var fedcmHandler *handlers.FedCMHandler
 	if oidcErr != nil || oidcStore == nil {
 		// Fail LOUD in the log but keep the rest of the server serving: a signing-key problem must not
 		// take password login down with it.
 		slog.Error("oidc: signing key unavailable — OIDC endpoints disabled", "error", oidcErr)
 	} else {
 		oidcHandler = handlers.NewOIDCHandler(oidcKeys, oidcStore, authService, issuer, loginURL)
+		// FedCM reuses the SAME keys, the SAME client registry and the SAME consent
+		// table as OIDC. It is a different way for a browser to ask for identity, not a
+		// second identity system — so it is enabled by exactly the same condition.
+		fedcmHandler = handlers.NewFedCMHandler(oidcKeys, oidcStore, authService, issuer, loginURL, fedcmBranding())
 	}
+
+	// Cookie policy for the opt-in `cookie_mode` login path (middleware/cookie.go).
+	//
+	// AUTH_COOKIE_CROSS_SITE writes the session cookie SameSite=None; Secure, which
+	// FedCM REQUIRES: the browser calls the accounts endpoint from a page on the
+	// relying party's origin, and a Lax cookie is simply not attached there. It
+	// defaults ON when FedCM is available, because a FedCM deployment with Lax
+	// cookies fails in the one way that leaves no trace — the endpoint sees an
+	// anonymous request and honestly answers "no accounts".
+	cookieOpts := middleware.CookieOptions{
+		Production: cfg.IsProduction(),
+		CrossSite:  getEnvBool("AUTH_COOKIE_CROSS_SITE", fedcmHandler != nil),
+		Domain:     os.Getenv("AUTH_COOKIE_DOMAIN"),
+	}
+	authHandler := handlers.NewAuthHandler(authService,
+		handlers.WithCookies(cookieOpts, int(cfg.JWT.RefreshTokenExpiry.Seconds()), cfg.Server.CORSOrigins))
 	userHandler := handlers.NewUserHandler(userService, roleService, authService)
 	orgHandler := handlers.NewOrganizationHandler(orgService, userService)
 	permHandler := handlers.NewPermissionHandler(permRepo)
@@ -201,6 +222,39 @@ func SetupRoutes(
 		router.HandleFunc("GET "+p+"/oauth/logout", oidcHandler.EndSession)
 	}
 
+	if fedcmHandler != nil {
+		// FedCM (Federated Credential Management) — "Sign in with CivicGate", brokered
+		// by the browser. Like OIDC discovery, these paths live at the ROOT: the config
+		// URL is what a relying party names, and every other endpoint resolves relative
+		// to it, so mounting them under /api/v1 would put them somewhere no browser
+		// looks. See docs/FEDCM.md.
+		//
+		// EVERY endpoint is behind RequireWebIdentity. `Sec-Fetch-Dest: webidentity` is
+		// a forbidden header name — page script cannot set it — so its presence is the
+		// browser asserting it made the call itself. Without that check /fedcm/accounts
+		// is a credentialed read of a signed-in person's name and email, available to
+		// any cross-site page. (It also means curl needs the header; see the doc.)
+		wi := middleware.RequireWebIdentity
+		router.Handle("GET /.well-known/web-identity", wi(http.HandlerFunc(fedcmHandler.WellKnown)))
+		router.Handle("GET /fedcm/config.json", wi(http.HandlerFunc(fedcmHandler.Config)))
+		// Cookie auth, not bearer: the browser makes these calls and has no way to
+		// attach an Authorization header. AuthenticateCookie answers 401 when signed
+		// out, which is exactly what FedCM reads as "offer the login page".
+		router.Handle("GET /fedcm/accounts", wi(authMw.AuthenticateCookie(http.HandlerFunc(fedcmHandler.Accounts))))
+		// Optional auth on assertion + disconnect so the handler runs far enough to
+		// validate the relying party and attach CORS headers before it reports a
+		// missing session — a 401 without them reaches the RP as an opaque network
+		// error instead of a readable one.
+		router.Handle("POST /fedcm/assertion", wi(authMw.OptionalAuthCookie(http.HandlerFunc(fedcmHandler.Assertion))))
+		router.Handle("POST /fedcm/disconnect", wi(authMw.OptionalAuthCookie(http.HandlerFunc(fedcmHandler.Disconnect))))
+		// Uncredentialed by design — it answers a question about the CLIENT, and the
+		// browser deliberately sends no cookies.
+		router.Handle("GET /fedcm/client-metadata", wi(http.HandlerFunc(fedcmHandler.ClientMetadata)))
+		// The login_url from the config document. NOT behind RequireWebIdentity: the
+		// browser opens it as a top-level navigation, where Sec-Fetch-Dest is "document".
+		router.Handle("GET /fedcm/login", authMw.OptionalAuthCookie(http.HandlerFunc(fedcmHandler.LoginPage)))
+	}
+
 	// Protected auth routes
 	router.Handle("GET "+p+"/auth/me", authMw.Authenticate(http.HandlerFunc(authHandler.GetMe)))
 	router.Handle("PATCH "+p+"/auth/me", authMw.Authenticate(http.HandlerFunc(authHandler.UpdateMe)))
@@ -241,15 +295,15 @@ func SetupRoutes(
 
 	if oidcHandler != nil {
 
-			// Relying-party administration. Behind the admin chain: registering a redirect_uri is functionally
-			// granting an application the ability to receive other people's sessions, so it is an
-			// administrative capability, never self-service.
-			oidcAdmin := handlers.NewOIDCAdminHandler(oidcStore)
-			router.Handle("GET "+p+"/admin/oauth/clients", adminChain(http.HandlerFunc(oidcAdmin.List)))
-			router.Handle("POST "+p+"/admin/oauth/clients", adminChain(http.HandlerFunc(oidcAdmin.Create)))
-			router.Handle("PATCH "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Update)))
-			router.Handle("POST "+p+"/admin/oauth/clients/{clientId}/rotate-secret", adminChain(http.HandlerFunc(oidcAdmin.RotateSecret)))
-			router.Handle("DELETE "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Delete)))
+		// Relying-party administration. Behind the admin chain: registering a redirect_uri is functionally
+		// granting an application the ability to receive other people's sessions, so it is an
+		// administrative capability, never self-service.
+		oidcAdmin := handlers.NewOIDCAdminHandler(oidcStore)
+		router.Handle("GET "+p+"/admin/oauth/clients", adminChain(http.HandlerFunc(oidcAdmin.List)))
+		router.Handle("POST "+p+"/admin/oauth/clients", adminChain(http.HandlerFunc(oidcAdmin.Create)))
+		router.Handle("PATCH "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Update)))
+		router.Handle("POST "+p+"/admin/oauth/clients/{clientId}/rotate-secret", adminChain(http.HandlerFunc(oidcAdmin.RotateSecret)))
+		router.Handle("DELETE "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Delete)))
 	}
 	systemAdminChain := func(h http.Handler) http.Handler {
 		return authMw.Authenticate(authMw.RequireSystemAdmin(h))
@@ -427,6 +481,44 @@ func SetupRoutes(
 	)(router)
 
 	return handler
+}
+
+// fedcmBranding builds the account-chooser styling the BROWSER paints. It is the
+// only visual control an IdP has in a FedCM flow, so it is worth getting right —
+// a chooser that does not look like the product reads as a phishing dialog.
+//
+// Env-overridable so a non-CivicGate deployment is not stuck advertising
+// CivicGate's name and icon.
+func fedcmBranding() handlers.FedCMBranding {
+	b := handlers.DefaultFedCMBranding()
+	if v := os.Getenv("FEDCM_BRAND_NAME"); v != "" {
+		b.Name = v
+	}
+	if v := os.Getenv("FEDCM_BRAND_ICON_URL"); v != "" {
+		b.IconURL = v
+	}
+	if v := os.Getenv("FEDCM_BRAND_BACKGROUND"); v != "" {
+		b.BackgroundColor = v
+	}
+	if v := os.Getenv("FEDCM_BRAND_COLOR"); v != "" {
+		b.Color = v
+	}
+	return b
+}
+
+// getEnvBool reads a boolean env var, falling back to def when unset or
+// unparseable. Unparseable falls back rather than erroring: a typo in a cookie
+// flag must not stop the server from booting.
+func getEnvBool(key string, def bool) bool {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	parsed, err := strconv.ParseBool(v)
+	if err != nil {
+		return def
+	}
+	return parsed
 }
 
 // methodRouter routes requests based on HTTP method
