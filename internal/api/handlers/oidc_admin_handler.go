@@ -222,26 +222,17 @@ func (h *OIDCAdminHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // validateRedirects rejects the shapes that make an allow-list useless.
+//
+// Delegates to the shared oidc.ValidateRedirectURIs so the administrative and the self-service
+// registration paths cannot drift — a rule this sharp kept in two places eventually disagrees, and the
+// disagreement is a hole rather than a bug.
+//
+// This is strictly a TIGHTENING of the admin path, never a relaxation. The rule it replaced tested
+// `strings.HasPrefix(s, "http://localhost")`, which also accepts "http://localhost.attacker.net/cb" —
+// an ordinary registrable domain, over plain http, that would receive every authorization code issued
+// to that client. The shared validator compares the PARSED HOST instead.
 func validateRedirects(uris []string) string {
-	for _, u := range uris {
-		s := strings.TrimSpace(u)
-		if s == "" {
-			return "Redirect URIs cannot be blank"
-		}
-		if strings.Contains(s, "*") {
-			// A wildcard defeats the exact-match check the authorize endpoint relies on.
-			return "Wildcards are not allowed in redirect URIs — list each one exactly"
-		}
-		if strings.Contains(s, "#") {
-			return "Redirect URIs must not contain a fragment"
-		}
-		isLocal := strings.HasPrefix(s, "http://localhost") || strings.HasPrefix(s, "http://127.0.0.1")
-		if !strings.HasPrefix(s, "https://") && !isLocal {
-			// Plain http would put the authorization code on the wire in clear text.
-			return "Redirect URIs must use https (http is allowed only for localhost)"
-		}
-	}
-	return ""
+	return oidc.ValidateRedirectURIs(uris)
 }
 
 func contains(list []string, want string) bool {

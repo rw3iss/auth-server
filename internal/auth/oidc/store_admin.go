@@ -59,23 +59,25 @@ func GenerateSecret() (plain string, hash string, err error) {
 // CreateClient registers a relying party. `public` omits the secret entirely — correct for a SPA or mobile
 // app, which cannot keep one; PKCE is what protects those instead.
 func (s *Store) CreateClient(ctx context.Context, clientID string, in ClientInput, public bool) (secret string, err error) {
-	var hash any
+	var hash, prefix any
 	if !public {
 		plain, h, gerr := GenerateSecret()
 		if gerr != nil {
 			return "", gerr
 		}
-		secret, hash = plain, h
+		// The prefix is recorded here too (migration 028) so an admin-created client renders the same way
+		// a self-service one does. Additive only — nothing reads it to make a decision.
+		secret, hash, prefix = plain, h, SecretPrefix(plain)
 	}
 	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO oauth_clients (client_id, client_secret_hash, name, description, logo_url,
+		INSERT INTO oauth_clients (client_id, client_secret_hash, client_secret_prefix, name, description, logo_url,
 			redirect_uris, post_logout_uris, allowed_scopes, grant_types, app_code, trusted, require_pkce, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13,'active'))`,
+		VALUES ($1,$2,$14,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13,'active'))`,
 		clientID, hash, deref(in.Name), deref(in.Description), deref(in.LogoURL),
 		pq.StringArray(derefSlice(in.RedirectURIs)), pq.StringArray(derefSlice(in.PostLogoutURIs)),
 		pq.StringArray(derefSlice(in.AllowedScopes)), pq.StringArray(derefSlice(in.GrantTypes)),
 		nullIfEmpty(deref(in.AppCode)), derefBool(in.Trusted), derefBoolDefault(in.RequirePKCE, true),
-		nullIfEmpty(deref(in.Status)))
+		nullIfEmpty(deref(in.Status)), prefix)
 	if err != nil {
 		return "", err
 	}
@@ -145,7 +147,8 @@ func (s *Store) RotateSecret(ctx context.Context, clientID string) (string, erro
 		return "", err
 	}
 	_, err = s.db.ExecContext(ctx,
-		`UPDATE oauth_clients SET client_secret_hash = $1, updated_at = now() WHERE client_id = $2`, hash, clientID)
+		`UPDATE oauth_clients SET client_secret_hash = $1, client_secret_prefix = $2, updated_at = now()
+		  WHERE client_id = $3`, hash, SecretPrefix(plain), clientID)
 	if err != nil {
 		return "", err
 	}

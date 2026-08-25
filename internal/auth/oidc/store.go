@@ -35,6 +35,14 @@ type Client struct {
 	Trusted          bool           `db:"trusted"`
 	RequirePKCE      bool           `db:"require_pkce"`
 	Status           string         `db:"status"`
+
+	// Self-service registration (migration 028). OwnerUserID is NULL for an administrator-created client,
+	// which is what keeps those rows invisible to the owner-filtered queries — `owner_user_id = $caller`
+	// simply never matches NULL. SecretPrefix is the first few characters of the secret, so a UI can name
+	// which secret is live without being able to reproduce it.
+	OwnerUserID  sql.NullString `db:"owner_user_id"`
+	SecretPrefix sql.NullString `db:"client_secret_prefix"`
+	CreatedAt    time.Time      `db:"created_at"`
 }
 
 // IsPublic reports a client with no secret — a SPA or mobile app. Public clients cannot authenticate

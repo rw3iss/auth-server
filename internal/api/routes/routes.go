@@ -313,6 +313,26 @@ func SetupRoutes(
 		router.Handle("PATCH "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Update)))
 		router.Handle("POST "+p+"/admin/oauth/clients/{clientId}/rotate-secret", adminChain(http.HandlerFunc(oidcAdmin.RotateSecret)))
 		router.Handle("DELETE "+p+"/admin/oauth/clients/{clientId}", adminChain(http.HandlerFunc(oidcAdmin.Delete)))
+
+		// SELF-SERVICE relying-party registration — "add Login with CivicGate to my site".
+		//
+		// Authenticated, NOT administrative: any member may register an application, the way Google and
+		// GitHub let any account register an OAuth app. What makes that safe is that this surface can do
+		// strictly LESS than the admin one above, and enforces ownership inside every query — see
+		// handlers/oidc_selfservice_handler.go and oidc/store_selfservice.go. Clients created here carry
+		// an owner_user_id (migration 028); the admin-created ones do not, which is exactly what keeps
+		// them — including the trusted first-party `civicgate-web` client — invisible here.
+		//
+		// The admin routes above are untouched and remain the only way to grant a client anything
+		// privileged: the civic:* scopes, `trusted`, an app_code, or PKCE-off.
+		oidcSelf := handlers.NewOIDCSelfServiceHandler(oidcStore)
+		selfChain := authMw.Authenticate
+		router.Handle("GET "+p+"/oidc/clients", selfChain(http.HandlerFunc(oidcSelf.List)))
+		router.Handle("POST "+p+"/oidc/clients", selfChain(http.HandlerFunc(oidcSelf.Create)))
+		router.Handle("GET "+p+"/oidc/clients/{clientId}", selfChain(http.HandlerFunc(oidcSelf.Get)))
+		router.Handle("PATCH "+p+"/oidc/clients/{clientId}", selfChain(http.HandlerFunc(oidcSelf.Update)))
+		router.Handle("DELETE "+p+"/oidc/clients/{clientId}", selfChain(http.HandlerFunc(oidcSelf.Delete)))
+		router.Handle("POST "+p+"/oidc/clients/{clientId}/rotate-secret", selfChain(http.HandlerFunc(oidcSelf.RotateSecret)))
 	}
 	systemAdminChain := func(h http.Handler) http.Handler {
 		return authMw.Authenticate(authMw.RequireSystemAdmin(h))

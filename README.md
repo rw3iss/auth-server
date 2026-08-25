@@ -637,6 +637,48 @@ and no client library looks anywhere else.
 | GET | `/api/v1/oauth/logout` | RP-initiated logout (registered post-logout URIs only) | No |
 | GET\|POST\|PATCH\|DELETE | `/api/v1/admin/oauth/clients…` | Relying-party registry: create, list, update, rotate secret, delete | Platform admin |
 
+#### Self-service client registration
+
+Any authenticated member may register **their own** relying party — the "add Login with CivicGate to my
+site" path, the way Google and GitHub let any account register an OAuth app. Migration **028** adds
+`oauth_clients.owner_user_id`; an administrator-created client has a **NULL owner** and is therefore
+invisible and unreachable through every endpoint below.
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/v1/oidc/clients` | List the caller's own clients (+ limits and requestable scopes) | Bearer |
+| POST | `/api/v1/oidc/clients` | Register a client owned by the caller — **returns the secret once** | Bearer |
+| GET | `/api/v1/oidc/clients/{id}` | Read one, own only | Bearer |
+| PATCH | `/api/v1/oidc/clients/{id}` | Update name/description/logo/redirect URIs/scopes/status, own only | Bearer |
+| DELETE | `/api/v1/oidc/clients/{id}` | Delete, own only (also drops its codes + consents) | Bearer |
+| POST | `/api/v1/oidc/clients/{id}/rotate-secret` | New secret, **returned once**; the old one dies immediately | Bearer |
+
+**Ownership is enforced in the QUERY**, not after it: every statement in
+`internal/auth/oidc/store_selfservice.go` carries `owner_user_id = $caller` in its own `WHERE` clause, so
+there is no check-then-act window and no `if` a future edit can short-circuit. "No such client" and "not
+yours" return the same 404, so the endpoint is not an oracle for which client ids exist.
+
+**A self-service client can do strictly less than an admin-created one**, which is what makes the surface
+safe to open up:
+
+| | Self-service | Admin |
+|---|---|---|
+| Scopes | `openid` · `profile` · `email` only (rejected, not silently dropped) | any, incl. `civic:*`, `offline_access` |
+| `trusted` (skips consent) | never | settable |
+| `app_code` (token's app scope) | never — always NULL | settable |
+| `require_pkce` | forced on | settable |
+| Grants | `authorization_code` + `refresh_token` | settable |
+| `client_id` | minted by the server | chosen by the operator |
+| Volume | 10 per account, 10 creates/hour | unlimited |
+| Sees admin-created clients | no (NULL owner never matches) | yes |
+
+**Redirect URIs** are validated by `oidc.ValidateRedirectURIs` — the same function the admin path now
+uses, so the two cannot drift. Absolute, `https` only, **exact** (no wildcards, no path prefixes), no
+fragment, no userinfo, no control characters, ≤512 chars, ≤10 per client. `http` is accepted only when the
+**parsed host** is exactly `localhost`, `127.0.0.1` or `::1` — `http://localhost.attacker.net/cb` is a
+remote host and is refused. Validated identically on **create and update**: a rule enforced only at
+creation is not a rule, because the edit form is the way around it.
+
 ### Identity Provider — FedCM
 
 Browser-mediated "Sign in with CivicGate" — the browser draws the account chooser, so no popup and no
