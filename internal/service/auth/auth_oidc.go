@@ -58,3 +58,30 @@ func (s *AuthService) IssueTokensForUser(ctx context.Context, userID types.ID, a
 func (s *AuthService) GetUserByID(ctx context.Context, userID types.ID) (*domain.User, error) {
 	return s.userRepo.GetByID(ctx, userID)
 }
+
+// UserNamespaces returns the user pools this person belongs to — their home pool plus any tag rows.
+//
+// Exposed for the OIDC id_token's `cg_namespaces` claim, which the discovery document has always
+// advertised and nothing ever populated. A relying party uses it to decide which tenant a signed-in
+// person belongs to, so it has to come from the same place the login lookup uses rather than a second
+// notion of pool membership.
+func (s *AuthService) UserNamespaces(ctx context.Context, userID types.ID) ([]string, error) {
+	return s.userRepo.GetUserNamespaces(ctx, userID)
+}
+
+// UserRoleCodes returns the user's GLOBAL base-role codes, for the `cg_roles` claim.
+//
+// Base roles only, deliberately: organization-scoped roles depend on which organization the caller means,
+// and an id_token has no organization context. Putting org roles here would state a permission that is
+// only true inside one org, which is worse than omitting them.
+func (s *AuthService) UserRoleCodes(ctx context.Context, userID types.ID) ([]string, error) {
+	roles, err := s.userRepo.GetBaseRoles(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	codes := make([]string, 0, len(roles))
+	for _, r := range roles {
+		codes = append(codes, r.Code)
+	}
+	return codes, nil
+}

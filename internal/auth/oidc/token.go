@@ -58,6 +58,20 @@ func ParseScopes(raw string) []string {
 }
 
 // HasScope reports whether the granted set contains one scope.
+// IsSupportedScope reports whether this server implements a scope at all.
+//
+// Registration validates against this so an unknown scope cannot be stored: a scope in a client's
+// allowed_scopes that the server has no concept of is one a consent screen will list and a token will
+// never carry, which is a promise made to a user that nothing keeps.
+func IsSupportedScope(scope string) bool {
+	for _, s := range SupportedScopes {
+		if s == scope {
+			return true
+		}
+	}
+	return false
+}
+
 func HasScope(granted []string, want string) bool {
 	for _, s := range granted {
 		if s == want {

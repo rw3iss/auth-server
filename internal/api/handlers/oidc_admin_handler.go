@@ -123,6 +123,15 @@ func (h *OIDCAdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// nothing enforced either. Validating at the write is what makes `AllowsGrant` meaningful: a typo, or
 	// a grant this server does not implement, is refused now rather than producing a client that can
 	// never obtain a token and gives no clue why.
+	// Scopes are validated against what this server implements, for the same reason grants are: an
+	// unknown scope stored here is one a consent screen will show and a token will never carry.
+	for _, sc := range req.AllowedScopes {
+		if !oidc.IsSupportedScope(sc) {
+			writeError(w, errors.InvalidInput("allowed_scopes", "Unsupported scope: "+sc))
+			return
+		}
+	}
+
 	grants := oidc.DefaultGrants
 	if len(req.GrantTypes) > 0 {
 		for _, g := range req.GrantTypes {
@@ -217,9 +226,29 @@ func (h *OIDCAdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// server does not implement — because nothing read the column afterwards. Now that AllowsGrant
 	// enforces it, an unvalidated write here is a way to lock a working client out of its own grant.
 	if in.GrantTypes != nil {
+		wantsClientCreds := false
 		for _, g := range *in.GrantTypes {
 			if !oidc.IsSupportedGrant(g) {
 				writeError(w, errors.InvalidInput("grant_types", "Unsupported grant type: "+g))
+				return
+			}
+			if g == oidc.GrantClientCredentials {
+				wantsClientCreds = true
+			}
+		}
+		// CREATE refuses client_credentials on a public client; PATCH has to as well, and could not
+		// before because it never loaded the row and so could not tell whether it was public. The token
+		// endpoint does refuse a public client at request time, so this was never exploitable — but the
+		// stored column would claim a capability the client does not have, and a settings screen that
+		// lies about what is enabled is its own kind of defect.
+		if wantsClientCreds {
+			existing, err := h.store.GetClient(r.Context(), clientID)
+			if err != nil {
+				writeError(w, errors.NotFound("client"))
+				return
+			}
+			if existing.IsPublic() {
+				writeError(w, errors.InvalidInput("grant_types", "client_credentials requires a confidential client; this client is public"))
 				return
 			}
 		}

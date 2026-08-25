@@ -499,7 +499,11 @@ func (h *OIDCHandler) tokenByClientCredentials(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	scopes := client.FilterScopes(strings.Fields(r.FormValue("scope")))
+	// ParseScopes, matching the authorize path exactly. `strings.Fields` alone let an arbitrary string
+	// through to be stored in the token — `users:read` would have been minted as a scope this server has
+	// no concept of, and a relying party could reasonably believe it meant something. FilterScopes then
+	// intersects with what the client may ever ask for, so a client cannot widen its own access.
+	scopes := client.FilterScopes(oidc.ParseScopes(r.FormValue("scope")))
 	appCode := ""
 	if client.AppCode.Valid {
 		appCode = client.AppCode.String
@@ -633,6 +637,23 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request, fallback htt
 		return
 	}
 
+	// TENANCY CLAIMS. `cg_namespaces` and `cg_roles` were advertised in `claims_supported` and NEVER
+	// EMITTED — neither ID-token call site set them, so `omitempty` silently dropped both. That is the
+	// same defect as advertising an unimplemented grant: a relying party reads the discovery document,
+	// builds against a claim it is promised, and receives nothing with no error to explain it.
+	//
+	// Emitted rather than removed from the advertisement, because these ARE the tenant signal a relying
+	// party needs: which user pools this person belongs to, and what they are globally. Best-effort — a
+	// lookup failure degrades to an absent claim rather than failing the token exchange, since neither is
+	// required to authenticate.
+	var namespaces, userRoles []string
+	if ns, nsErr := h.authService.UserNamespaces(r.Context(), userID); nsErr == nil {
+		namespaces = ns
+	}
+	if rs, rErr := h.authService.UserRoleCodes(r.Context(), userID); rErr == nil {
+		userRoles = rs
+	}
+
 	idToken, err := h.keys.NewIDToken(oidc.IDTokenInput{
 		Issuer:     h.issuer,
 		Subject:    stored.UserID,
@@ -647,6 +668,8 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request, fallback htt
 		FamilyName: user.LastName,
 		Username:   user.DisplayName,
 		AppCode:    appCode,
+		Namespaces: namespaces,
+		Roles:      userRoles,
 	})
 	if err != nil {
 		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not issue id_token")
