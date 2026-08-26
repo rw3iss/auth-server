@@ -239,6 +239,11 @@ type GenerateTokenInput struct {
 	// keeps every code it was given — a caller that cannot express services must not silently lose them.
 	PermissionRecords []*domain.Permission
 
+	// AuthorizedParty is the OIDC client id this session is being minted for, when it came from the
+	// authorization-code grant. Recorded on the REFRESH token so the refresh grant can require the same
+	// client to present it (RFC 6749 §6). Empty for password / SSO / magic-link logins.
+	AuthorizedParty string
+
 	// App, when non-nil, scopes the issued token to a consuming app.
 	// AUDIT 8.3 — the app_id + app_code claims appear on access tokens.
 	// Nil means "base-user mode" (AUTH_ALLOW_BASE_USER_LOGIN); the
@@ -385,6 +390,9 @@ func (s *Service) GenerateTokenPair(ctx context.Context, input GenerateTokenInpu
 	if input.App != nil {
 		refreshClaims.AppCode = input.App.Code
 	}
+	// See RefreshTokenClaims.AuthorizedParty — this is what lets the refresh grant verify the token was
+	// issued to the client presenting it.
+	refreshClaims.AuthorizedParty = input.AuthorizedParty
 
 	refreshToken, err := s.generateToken(refreshClaims, s.cfg.RefreshTokenSecret)
 	if err != nil {

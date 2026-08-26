@@ -21,6 +21,14 @@ import (
 //
 // It deliberately does NOT check a password, so every caller must have verified something equivalent.
 func (s *AuthService) IssueTokensForUser(ctx context.Context, userID types.ID, appCode string) (*jwt.TokenPair, *domain.User, error) {
+	return s.IssueTokensForClient(ctx, userID, appCode, "")
+}
+
+// IssueTokensForClient is IssueTokensForUser with the OIDC client recorded on the refresh token.
+//
+// The client id is stamped as `azp` so the refresh_token grant can require the SAME client to present it
+// (RFC 6749 §6). Without it a refresh token is a bearer credential any registered client can redeem.
+func (s *AuthService) IssueTokensForClient(ctx context.Context, userID types.ID, appCode, clientID string) (*jwt.TokenPair, *domain.User, error) {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load user: %w", err)
@@ -35,9 +43,10 @@ func (s *AuthService) IssueTokensForUser(ctx context.Context, userID types.ID, a
 	}
 
 	in := jwt.GenerateTokenInput{
-		User:        user,
-		Roles:       roles,
-		Permissions: collectRolePermissions(roles),
+		User:            user,
+		Roles:           roles,
+		Permissions:     collectRolePermissions(roles),
+		AuthorizedParty: clientID,
 	}
 	if appCode != "" && s.appService != nil {
 		if app, err := s.appService.GetByCode(ctx, appCode); err == nil && app != nil && app.IsActive() {
@@ -110,4 +119,18 @@ func (s *AuthService) UserRoleCodes(ctx context.Context, userID types.ID) ([]str
 		codes = append(codes, r.Code)
 	}
 	return codes, nil
+}
+
+// RefreshTokenAuthorizedParty returns the OIDC client a refresh token was issued to (`azp`), or "" when
+// it did not come from an OIDC client.
+//
+// Exposed so the token endpoint can enforce RFC 6749 §6 without duplicating refresh-token validation —
+// the token is verified here by the same code that redeems it, so the two cannot disagree about whether
+// it is valid.
+func (s *AuthService) RefreshTokenAuthorizedParty(ctx context.Context, refreshToken string) (string, error) {
+	claims, err := s.jwtService.ValidateRefreshToken(ctx, refreshToken)
+	if err != nil {
+		return "", err
+	}
+	return claims.AuthorizedParty, nil
 }

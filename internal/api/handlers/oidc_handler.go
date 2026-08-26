@@ -449,6 +449,20 @@ func (h *OIDCHandler) tokenByRefresh(w http.ResponseWriter, r *http.Request, fal
 	// authentication above proves WHO is presenting it. Rotation semantics are whatever RefreshTokens
 	// does for a first-party session — one implementation, so an OIDC refresh and a session refresh
 	// cannot drift apart in how they revoke.
+	// RFC 6749 §6: the authorization server MUST ensure the refresh token was issued to the AUTHENTICATED
+	// client. Authenticating the client above is only half of it — without this comparison a refresh
+	// token is a bearer credential that ANY registered client can redeem, so one client that obtained
+	// another's token could mint fresh sessions from it indefinitely.
+	//
+	// A token with NO `azp` did not come from an OIDC client at all (password login, SSO, magic link).
+	// Those refresh through /auth/refresh and must not be redeemable here, so an empty value is refused
+	// rather than treated as a wildcard.
+	azp, err := h.authService.RefreshTokenAuthorizedParty(r.Context(), refresh)
+	if err != nil || azp == "" || azp != client.ClientID {
+		writeOAuthError(w, http.StatusBadRequest, "invalid_grant", "the refresh token is not valid for this client")
+		return
+	}
+
 	pair, err := h.authService.RefreshTokens(r.Context(), refresh, nil)
 	if err != nil {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_grant", "the refresh token is not valid")
@@ -632,7 +646,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request, fallback htt
 	if client.AppCode.Valid {
 		appCode = client.AppCode.String
 	}
-	pair, user, err := h.authService.IssueTokensForUser(r.Context(), userID, appCode)
+	pair, user, err := h.authService.IssueTokensForClient(r.Context(), userID, appCode, clientID)
 	if err != nil {
 		// A user who is not authorised for the client's application is `access_denied`, not
 		// `invalid_grant` (RFC 6749 §4.1.2.1). invalid_grant tells the client its CODE was bad, sending

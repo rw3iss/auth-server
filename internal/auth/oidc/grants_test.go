@@ -102,3 +102,32 @@ func TestIsSupportedScope(t *testing.T) {
 		}
 	}
 }
+
+// RFC 6749 §6 — a refresh token may only be redeemed by the client it was issued to. The refresh grant
+// authenticates the client, but authentication alone proves only WHO is asking; without comparing `azp`
+// the token stays a bearer credential any registered client can spend.
+//
+// This mirrors the condition in tokenByRefresh. An empty azp means the session came from a password /
+// SSO / magic-link login, which refreshes at /auth/refresh and must NOT be redeemable at /oauth/token.
+func TestRefreshRequiresMatchingAuthorizedParty(t *testing.T) {
+	accept := func(azp, presenting string) bool { return azp != "" && azp == presenting }
+
+	cases := []struct {
+		name       string
+		azp        string
+		presenting string
+		want       bool
+	}{
+		{"same client", "app-a", "app-a", true},
+		{"another client may not redeem it", "app-a", "app-b", false},
+		{"a non-OIDC session is not redeemable here", "", "app-a", false},
+		{"empty is not a wildcard", "", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := accept(c.azp, c.presenting); got != c.want {
+				t.Fatalf("azp=%q presented-by=%q → %v, want %v", c.azp, c.presenting, got, c.want)
+			}
+		})
+	}
+}

@@ -214,6 +214,21 @@ type RefreshTokenClaims struct {
 	// re-mint an access token with the same app_id/app_code claims — otherwise
 	// refresh silently drops app scope. Empty = base-user / no app context.
 	AppCode string `json:"app_code,omitempty"`
+	// AuthorizedParty is the OIDC client this session was minted FOR, when it came from the
+	// authorization-code grant. `azp` is the standard OIDC name for exactly this.
+	//
+	// It exists so the refresh_token grant can honour RFC 6749 §6: "the authorization server MUST
+	// ensure that the refresh token was issued to the authenticated client". Without it a refresh
+	// token is a bearer credential ANY registered client can redeem, so one client obtaining
+	// another's token could mint fresh sessions from it indefinitely.
+	//
+	// Deliberately NOT reusing TokenClaims.ClientID: `IsServicePrincipal()` returns true whenever that
+	// field is set, so putting a client id on a USER token would misclassify every OIDC-issued session
+	// as a machine principal.
+	//
+	// Empty means the session did not come from an OIDC client (a password login, SSO, magic link) —
+	// and those refresh through /auth/refresh, never /oauth/token.
+	AuthorizedParty string `json:"azp,omitempty"`
 }
 
 // Token purpose constants. AUDIT 1.6/1.7: every non-session JWT carries an
