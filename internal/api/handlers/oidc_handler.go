@@ -13,26 +13,31 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	stderrors "errors"
 	"github.com/rw3iss/auth/internal/api/middleware"
+	jwtpkg "github.com/rw3iss/auth/internal/auth/jwt"
 	"github.com/rw3iss/auth/internal/auth/oidc"
 	auth "github.com/rw3iss/auth/internal/service/auth"
 	"github.com/rw3iss/auth/pkg/shared/errors"
-	jwtpkg "github.com/rw3iss/auth/internal/auth/jwt"
-	stderrors "errors"
+	"sort"
+	"strconv"
 )
 
 // OIDCHandler implements the OpenID Connect provider surface.
 //
 // THE FLOW, end to end:
 //
-//	 browser                     auth.civicgate.org                 relying party
-//	   │  GET /oauth/authorize ────────►│                                  │
-//	   │  (login if needed, consent)    │                                  │
-//	   │  ◄──── 302 redirect_uri?code=… │                                  │
-//	   │─────────────────────────────── code ────────────────────────────► │
-//	   │                                │ ◄── POST /oauth/token (code+PKCE)│
-//	   │                                │ ──── id_token + access_token ───►│
-//	   │                                │ ◄── GET /userinfo (bearer)       │
+//	browser                     auth.civicgate.org                 relying party
+//	  │  GET /oauth/authorize ────────►│                                  │
+//	  │  (login if needed, consent)    │                                  │
+//	  │  ◄──── 302 redirect_uri?code=… │                                  │
+//	  │─────────────────────────────── code ────────────────────────────► │
+//	  │                                │ ◄── POST /oauth/token (code+PKCE)│
+//	  │                                │ ──── id_token + access_token ───►│
+//	  │                                │ ◄── GET /userinfo (bearer)       │
 //
 // The relying party never sees the person's credentials, and verifies the id_token locally against JWKS.
 type OIDCHandler struct {
@@ -41,14 +46,24 @@ type OIDCHandler struct {
 	authService *auth.AuthService
 	// Minting a SERVICE token needs the symmetric signer, not the OIDC KeyManager (which holds the RS256
 	// key used for id_tokens). Same signer the m2m registry uses, so both registries emit one token shape.
-	jwtService  *jwtpkg.Service
-	issuer      string
+	jwtService *jwtpkg.Service
+	// Key for the consent-approval nonce. Random per process: consent screens are short-lived, so a
+	// restart invalidating an open one is a re-prompt, not a failure — and it means no new secret to
+	// configure, distribute or leak.
+	consentKey []byte
+	issuer     string
 	// Where to send an unauthenticated /oauth/authorize — the login UI, which returns here afterwards.
 	loginURL string
 }
 
 func NewOIDCHandler(keys *oidc.KeyManager, store *oidc.Store, authService *auth.AuthService, jwtService *jwtpkg.Service, issuer, loginURL string) *OIDCHandler {
-	return &OIDCHandler{keys: keys, store: store, authService: authService, jwtService: jwtService, issuer: issuer, loginURL: loginURL}
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		// Cannot happen in practice; if it somehow does, a zero key would silently make every consent
+		// nonce forgeable, so refuse to start with one.
+		panic("oidc: could not seed the consent nonce key: " + err.Error())
+	}
+	return &OIDCHandler{keys: keys, store: store, authService: authService, jwtService: jwtService, issuer: issuer, loginURL: loginURL, consentKey: key}
 }
 
 // ── Discovery ─────────────────────────────────────────────────────────────────────────────────────────
@@ -59,16 +74,16 @@ func NewOIDCHandler(keys *oidc.KeyManager, store *oidc.Store, authService *auth.
 // usually get one wrong" and "point any OIDC library at the issuer and it works".
 func (h *OIDCHandler) Discovery(w http.ResponseWriter, r *http.Request) {
 	doc := map[string]any{
-		"issuer":                                h.issuer,
-		"authorization_endpoint":                h.issuer + "/api/v1/oauth/authorize",
-		"token_endpoint":                        h.issuer + "/api/v1/oauth/token",
-		"userinfo_endpoint":                     h.issuer + "/api/v1/oauth/userinfo",
-		"jwks_uri":                              h.issuer + "/.well-known/jwks.json",
-		"end_session_endpoint":                  h.issuer + "/api/v1/oauth/logout",
-		"revocation_endpoint":                   h.issuer + "/api/v1/oauth/revoke",
-		"scopes_supported":                      oidc.SupportedScopes,
-		"response_types_supported":              []string{"code"},
-		"response_modes_supported":              []string{"query"},
+		"issuer":                   h.issuer,
+		"authorization_endpoint":   h.issuer + "/api/v1/oauth/authorize",
+		"token_endpoint":           h.issuer + "/api/v1/oauth/token",
+		"userinfo_endpoint":        h.issuer + "/api/v1/oauth/userinfo",
+		"jwks_uri":                 h.issuer + "/.well-known/jwks.json",
+		"end_session_endpoint":     h.issuer + "/api/v1/oauth/logout",
+		"revocation_endpoint":      h.issuer + "/api/v1/oauth/revoke",
+		"scopes_supported":         oidc.SupportedScopes,
+		"response_types_supported": []string{"code"},
+		"response_modes_supported": []string{"query"},
 		// DERIVED from what the token endpoint actually implements, never hand-listed. This document is
 		// how every standards-compliant library decides what to attempt, so a grant listed here and not
 		// served sends clients down a path that can only fail — which is what happened with
@@ -200,10 +215,15 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	if !client.Trusted {
 		granted, _ := h.store.GetConsent(r.Context(), userID, clientID)
 		if missing := missingScopes(scopes, granted); len(missing) > 0 {
-			if q.Get("consent") == "granted" {
+			// An approval is only honoured with a nonce this server minted for THIS user, THIS client and
+			// THIS scope set. Without it, `consent=granted` in a link was enough — see consentNonce.
+			if q.Get("consent") == "granted" && h.consentNonceValid(userID, clientID, scopes, q.Get("consent_nonce")) {
 				_ = h.store.SaveConsent(r.Context(), userID, clientID, union(granted, scopes))
 			} else {
-				h.renderConsent(w, client, scopes, r.URL.RawQuery)
+				// Re-render rather than erroring on a bad nonce: the honest case is an expired screen left
+				// open in a tab, and the right answer to that is to ask again.
+				nonce := h.consentNonce(userID, clientID, scopes, time.Now().Add(consentNonceTTL).Unix())
+				h.renderConsent(w, client, scopes, stripConsentParams(r.URL.RawQuery), nonce)
 				return
 			}
 		}
@@ -242,8 +262,62 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
+// stripConsentParams removes the approval fields from a query string before it is re-embedded in a fresh
+// consent form. Without this a stale nonce (or a forged one) would be carried straight back into the new
+// form's hidden inputs and re-submitted.
+func stripConsentParams(rawQuery string) string {
+	v, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return rawQuery
+	}
+	v.Del("consent")
+	v.Del("consent_nonce")
+	return v.Encode()
+}
+
+// ── Consent approval nonce ───────────────────────────────────────────────────────────────────────────
+//
+// `consent=granted` USED TO BE TRUSTED STRAIGHT OFF THE QUERY STRING, and that became a live CSRF the
+// moment /oauth/authorize started accepting the session cookie: a signed-in victim following a crafted
+// link would silently approve an attacker-registered client and have an authorization code delivered to
+// the attacker's own redirect_uri, with nothing shown on screen. It was latent before that, because a
+// top-level navigation could not authenticate at all and the request never reached this branch.
+//
+// So approval now has to prove it came from a consent screen WE rendered. The nonce is an HMAC over
+// (user, client, exact scope set, expiry) keyed on a server secret, which gives the property that
+// matters: an attacker cannot compute one for a victim's user id, and cannot widen the scopes of a nonce
+// they were legitimately given — changing either invalidates it.
+//
+// Stateless on purpose: a consent table row would need cleaning up and adds a write to a GET. The short
+// expiry bounds replay, and approval is idempotent (SaveConsent writes the same union again), so
+// single-use adds nothing here.
+const consentNonceTTL = 10 * time.Minute
+
+func (h *OIDCHandler) consentNonce(userID, clientID string, scopes []string, expUnix int64) string {
+	// Scopes are sorted so the nonce is over the SET, not the order they happened to arrive in — the
+	// check must not be defeatable, or passable, by reordering.
+	sorted := append([]string(nil), scopes...)
+	sort.Strings(sorted)
+	mac := hmac.New(sha256.New, h.consentKey)
+	fmt.Fprintf(mac, "%s|%s|%s|%d", userID, clientID, strings.Join(sorted, " "), expUnix)
+	return fmt.Sprintf("%d.%s", expUnix, hex.EncodeToString(mac.Sum(nil)))
+}
+
+func (h *OIDCHandler) consentNonceValid(userID, clientID string, scopes []string, presented string) bool {
+	dot := strings.IndexByte(presented, '.')
+	if dot <= 0 {
+		return false
+	}
+	expUnix, err := strconv.ParseInt(presented[:dot], 10, 64)
+	if err != nil || time.Now().Unix() > expUnix {
+		return false
+	}
+	// Constant-time: a byte-wise comparison leaks how much of a forgery was correct.
+	return hmac.Equal([]byte(h.consentNonce(userID, clientID, scopes, expUnix)), []byte(presented))
+}
+
 // renderConsent shows what a client is asking for, in plain language.
-func (h *OIDCHandler) renderConsent(w http.ResponseWriter, c *oidc.Client, scopes []string, rawQuery string) {
+func (h *OIDCHandler) renderConsent(w http.ResponseWriter, c *oidc.Client, scopes []string, rawQuery, nonce string) {
 	descriptions := map[string]string{
 		oidc.ScopeOpenID:     "Confirm who you are",
 		oidc.ScopeProfile:    "Your name, username and picture",
@@ -279,6 +353,7 @@ small{color:#9aa0aa;display:block;margin-top:1.2rem;line-height:1.5}</style></he
 <p>It is asking to:</p><ul>` + rows.String() + `</ul>
 <form method="GET" action="/api/v1/oauth/authorize">` + hiddenInputs(rawQuery) + `
 <input type="hidden" name="consent" value="granted">
+<input type="hidden" name="consent_nonce" value="` + htmlEscape(nonce) + `">
 <button class="b y" type="submit">Allow</button>
 <a class="b n" href="/">Cancel</a></form>
 <small>You can revoke this at any time in your CivicGate account settings.
