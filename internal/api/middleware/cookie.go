@@ -195,6 +195,41 @@ func (m *AuthMiddleware) AuthenticateCookie(next http.Handler) http.Handler {
 	})
 }
 
+// OptionalAuthEither accepts EITHER an Authorization header OR the session cookie.
+//
+// This exists for the OIDC authorization endpoint, and the reason is worth stating: /oauth/authorize is
+// reached by a TOP-LEVEL BROWSER NAVIGATION. A navigation cannot carry an Authorization header — only
+// fetch/XHR can set one — so a header-only guard means a browser can never present a session there, and
+// the endpoint bounced every real user to the login page even when they were signed in. Signing in and
+// returning bounced them again, because signing in produced a bearer token the next navigation still
+// could not send.
+//
+// A cookie is the only credential a navigation carries, which is why every OIDC provider relies on one at
+// this endpoint. The header is still accepted first so API callers and tests are unaffected.
+func (m *AuthMiddleware) OptionalAuthEither(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var claims *jwt.TokenClaims
+		if token := extractToken(r); token != "" {
+			if c, err := m.jwtService.ValidateAccessToken(token); err == nil {
+				claims = c
+			}
+		}
+		if claims == nil {
+			claims = m.ClaimsFromCookie(r)
+		}
+		if claims != nil {
+			ctx := context.WithValue(r.Context(), ContextKeyClaims, claims)
+			ctx = context.WithValue(ctx, ContextKeyUserID, claims.UserID)
+			ctx = logging.WithUserID(ctx, claims.UserID.String())
+			if claims.OrganizationID != nil {
+				ctx = context.WithValue(ctx, ContextKeyOrgID, *claims.OrganizationID)
+			}
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // OptionalAuthCookie is AuthenticateCookie that does not reject anonymous callers —
 // the cookie counterpart of OptionalAuth.
 //

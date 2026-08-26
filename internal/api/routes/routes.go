@@ -219,7 +219,7 @@ func SetupRoutes(
 		router.HandleFunc("GET /.well-known/openid-configuration", oidcHandler.Discovery)
 		router.HandleFunc("GET /.well-known/jwks.json", oidcHandler.JWKS)
 		// Optional auth: an authenticated browser proceeds, an anonymous one is bounced to login.
-		router.Handle("GET "+p+"/oauth/authorize", authMw.OptionalAuth(http.HandlerFunc(oidcHandler.Authorize)))
+		router.Handle("GET "+p+"/oauth/authorize", authMw.OptionalAuthEither(http.HandlerFunc(oidcHandler.Authorize)))
 		router.Handle("GET "+p+"/oauth/userinfo", authMw.Authenticate(http.HandlerFunc(oidcHandler.UserInfo)))
 		router.Handle("POST "+p+"/oauth/userinfo", authMw.Authenticate(http.HandlerFunc(oidcHandler.UserInfo)))
 		router.HandleFunc("GET "+p+"/oauth/logout", oidcHandler.EndSession)
