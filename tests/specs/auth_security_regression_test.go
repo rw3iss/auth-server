@@ -22,14 +22,37 @@ func TestPasswordResetTokenSingleUse(t *testing.T) {
 	env := helpers.NewTestEnvironment(t)
 	user := helpers.RegisterAndLogin(t, env.Client)
 
-	// We don't have the raw reset token surfaced via API (it normally goes
-	// out via email). The test harness needs to peek at the
-	// password_reset_tokens row to grab the JWT. Skip this test if the
-	// harness doesn't expose that — it's documented as missing coverage
-	// in AUDIT 6.1 and tracked separately. The single-use *enforcement*
-	// has unit-level coverage in internal/auth/jwt/service_test.go.
-	t.Skip("requires email-capture harness to grab reset token; unit coverage in jwt/service_test.go")
-	_ = user
+	// The raw reset token only ever reaches the user by email, which is why this was skipped. The harness
+	// now captures what would have been sent, so the token is obtainable exactly as a real user obtains
+	// it — through the email — rather than by reaching into the database behind the flow's back.
+	env.Emails.Reset()
+	if resp := env.Client.RequestPasswordReset(t, user.Email); resp.StatusCode != http.StatusOK {
+		t.Fatalf("reset request: %d %s", resp.StatusCode, resp.Body)
+	}
+	mail, ok := env.Emails.LastTo("password_reset", user.Email)
+	if !ok {
+		t.Fatal("no password-reset email captured — the flow did not send one")
+	}
+	if mail.Token == "" {
+		t.Fatal("password-reset email carried no token")
+	}
+
+	// First use succeeds.
+	if resp := env.Client.ResetPassword(t, mail.Token, "NewPassw0rd!123"); resp.StatusCode != http.StatusOK {
+		t.Fatalf("first reset should succeed: %d %s", resp.StatusCode, resp.Body)
+	}
+
+	// SECOND use of the SAME token must fail while the JWT is still well within its expiry window —
+	// that is the whole point: expiry is not what stops replay, single-use enforcement is.
+	resp := env.Client.ResetPassword(t, mail.Token, "AnotherPassw0rd!123")
+	if resp.StatusCode == http.StatusOK {
+		t.Fatal("SECURITY: a password-reset token was accepted twice")
+	}
+
+	// And the first reset really took effect, so the test cannot pass by the reset having silently no-opped.
+	if resp := env.Client.Login(t, map[string]interface{}{"email": user.Email, "password": "NewPassw0rd!123"}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("login with the new password should succeed: %d %s", resp.StatusCode, resp.Body)
+	}
 }
 
 // AUDIT 1.9: presenting a refresh token after it's been rotated must (a)

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # pre-push hook — block broken pushes
 #
-# Runs `go build ./...` and `go test ./internal/... -count=1`.
+# Runs `go build ./...`, `go test ./internal/... ./pkg/... -count=1`, and a
+# compile check of the integration suite.
 # Fails the push (non-zero exit) if either gate fails.
 #
 # Install (per-clone — Git doesn't track hooks itself):
@@ -25,7 +26,14 @@ fi
 echo "==> pre-push: go build ./..."
 go build ./...
 
-echo "==> pre-push: go test ./internal/... -count=1"
-go test ./internal/... -count=1
+echo "==> pre-push: go test ./internal/... ./pkg/... -count=1"
+go test ./internal/... ./pkg/... -count=1
+
+# COMPILE-CHECK the integration suite. It cannot RUN here (no Postgres), but it
+# had drifted out of compiling entirely — six parameters behind SetupRoutes —
+# and because nothing ever referenced ./tests/..., the whole suite was dead with
+# no signal at all.
+echo "==> pre-push: go vet -tags=integration ./tests/..."
+go vet -tags=integration ./tests/...
 
 echo "==> pre-push: OK"

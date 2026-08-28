@@ -120,6 +120,53 @@ func (c *TestClient) ResetPassword(t *testing.T, token, newPassword string) *Res
 	})
 }
 
+// RequestMagicLink asks for a passwordless sign-in link.
+func (c *TestClient) RequestMagicLink(t *testing.T, email string) *Response {
+	t.Helper()
+	return c.post(t, c.apiPrefix+"/auth/magic-link/request", map[string]interface{}{"email": email})
+}
+
+// VerifyMagicLink redeems a magic-link token for a session.
+func (c *TestClient) VerifyMagicLink(t *testing.T, token string) *Response {
+	t.Helper()
+	return c.post(t, c.apiPrefix+"/auth/magic-link/verify", map[string]interface{}{"token": token})
+}
+
+// VerifyEmail redeems an email-verification token.
+func (c *TestClient) VerifyEmail(t *testing.T, token string) *Response {
+	t.Helper()
+	return c.post(t, c.apiPrefix+"/auth/verify-email", map[string]interface{}{"token": token})
+}
+
+// CreateOrgInvitation invites an email address to an organization. Requires the
+// caller's token to carry org:members:invite.
+func (c *TestClient) CreateOrgInvitation(t *testing.T, orgID, email string, roleIDs []string) *Response {
+	t.Helper()
+	body := map[string]interface{}{"email": email}
+	if len(roleIDs) > 0 {
+		body["role_ids"] = roleIDs
+	}
+	return c.post(t, c.apiPrefix+"/orgs/"+orgID+"/invitations", body)
+}
+
+// ListMyInvitations lists the authenticated user's pending invitations.
+func (c *TestClient) ListMyInvitations(t *testing.T) *Response {
+	t.Helper()
+	return c.get(t, c.apiPrefix+"/me/invitations")
+}
+
+// AcceptMyInvitation accepts one by id.
+func (c *TestClient) AcceptMyInvitation(t *testing.T, invitationID string) *Response {
+	t.Helper()
+	return c.post(t, c.apiPrefix+"/me/invitations/"+invitationID+"/accept", nil)
+}
+
+// DeclineMyInvitation declines one by id.
+func (c *TestClient) DeclineMyInvitation(t *testing.T, invitationID string) *Response {
+	t.Helper()
+	return c.post(t, c.apiPrefix+"/me/invitations/"+invitationID+"/decline", nil)
+}
+
 // ChangePassword changes the user's password
 func (c *TestClient) ChangePassword(t *testing.T, currentPassword, newPassword string) *Response {
 	t.Helper()

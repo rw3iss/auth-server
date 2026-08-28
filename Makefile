@@ -63,8 +63,10 @@ docker-clean: ## Stop services and remove all volumes/data
 	docker rmi ven-auth-server 2>/dev/null || true
 
 # ─── Tests ───────────────────────────────────────────────────────────
-test: ## Run unit tests
-	go test ./internal/... -v -count=1
+test: ## Run unit tests (internal + pkg) and COMPILE the integration suite
+	go test ./internal/... ./pkg/... -v -count=1
+	@echo "--- compiling integration suite (not running: needs Docker) ---"
+	go vet -tags=integration ./tests/...
 
 test-integration: ## Run integration tests (requires Docker)
 	./scripts/run-tests.sh

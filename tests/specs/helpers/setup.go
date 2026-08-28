@@ -17,6 +17,7 @@ import (
 	"github.com/rw3iss/auth/internal/auth/jwt"
 	"github.com/rw3iss/auth/internal/auth/sso"
 	"github.com/rw3iss/auth/internal/cache"
+	"github.com/rw3iss/auth/internal/auth/oidc"
 	"github.com/rw3iss/auth/internal/config"
 	"github.com/rw3iss/auth/internal/email"
 	"github.com/rw3iss/auth/internal/repository/postgres"
@@ -95,6 +96,9 @@ type TestEnvironment struct {
 	DB          *postgres.DB
 	RedisClient *cache.RedisClient
 	Client      *TestClient
+	// Emails captures what would have been sent — the only way to obtain the
+	// single-use tokens the email-bearing flows depend on.
+	Emails *email.CapturingEmailService
 }
 
 // NewTestEnvironment creates a full test environment with HTTP test server
@@ -138,8 +142,12 @@ func NewTestEnvironment(t *testing.T) *TestEnvironment {
 	// in-memory stores before the process exits.
 	ssoManager, _ := sso.NewManager(context.Background(), cfg.SSO, nil, nil)
 
-	// Initialize email service (no-op)
-	emailService := email.NewNoOpEmailService()
+	// CAPTURING, not no-op. Four flows (verify-email, password reset, invitation, magic link) hand the
+	// user a token that ONLY reaches them by email; with a no-op service that token is logged and dropped,
+	// so a test can call the request endpoint and then has nothing to present to the confirm endpoint.
+	// That is why TestPasswordResetTokenSingleUse was skipped and why invitations and magic links had no
+	// tests at all. Exposed on TestEnvironment as `.Emails`.
+	emailService := email.NewCapturingEmailService()
 
 	// Initialize services
 	authService := auth.NewAuthService(
@@ -180,13 +188,18 @@ func NewTestEnvironment(t *testing.T) *TestEnvironment {
 		orgRepo,
 	)
 
-	// Setup routes. SetupRoutes signature is
-	// (ctx, cfg, auth, user, org, role, app, permRepo, jwt, scheduler, redis, tokenCache?).
-	// Tests don't exercise the background scheduler so we pass nil — the
-	// JobHandler is tolerant of that (List returns an empty array, etc.).
-	// ctx = t-scoped Background; the rate-limiter cleanup goroutine
-	// terminates with the test process (and the cancel is called in
-	// env.Cleanup).
+	// Services the routes now require. THE HARNESS HAD DRIFTED OUT OF COMPILING against SetupRoutes —
+	// and because CI runs only ./internal/..., nothing reported it: the whole integration suite had been
+	// dead for as long as the signature had been ahead of it. Wired for real rather than nil-padded,
+	// because a nil service is a panic waiting for the first test that touches its route.
+	appService := service.NewAppService(postgres.NewAppRepository(db))
+	m2mService := service.NewM2MService(postgres.NewM2MClientRepository(db), jwtService, cfg.Security.BcryptCost, nil)
+	magicLinkService := auth.NewMagicLinkService(db.DB, userRepo, roleRepo, tokenRepo, jwtService, emailService, appService)
+	auditQueryService := service.NewAuditQueryService(db.DB)
+	oidcStore := oidc.NewStore(db.DB)
+
+	// ctx = t-scoped Background; the rate-limiter cleanup goroutine terminates with the test process
+	// (and the cancel is called in env.Cleanup).
 	routeCtx, routeCancel := context.WithCancel(context.Background())
 	t.Cleanup(routeCancel)
 	handler := routes.SetupRoutes(
@@ -196,11 +209,15 @@ func NewTestEnvironment(t *testing.T) *TestEnvironment {
 		userService,
 		orgService,
 		roleService,
-		nil, // appService — tests don't exercise app scoping; AllowBaseUserLogin is implicit
+		appService,
+		m2mService,
+		magicLinkService,
+		auditQueryService,
 		permRepo,
 		jwtService,
-		nil, // scheduler
+		nil, // scheduler — no test drives background jobs; JobHandler tolerates nil (List returns []).
 		redisClient,
+		oidcStore,
 		tokenCache,
 	)
 
@@ -220,6 +237,7 @@ func NewTestEnvironment(t *testing.T) *TestEnvironment {
 		DB:          db,
 		RedisClient: redisClient,
 		Client:      NewTestClient(server.URL, cfg.Server.APIPrefix),
+		Emails:      emailService,
 	}
 
 	t.Cleanup(func() {
